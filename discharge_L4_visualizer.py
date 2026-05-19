@@ -1,3 +1,8 @@
+# Visualizer of the SWOT discharge L4 data and GRDC in situ values for data analysis
+# Author: Eve Castonguay, LIRA (CNRS)
+# Creation date: 2026-05-15 [YYYY-MM-DD]
+# Version 0.1: AAAA-MM-JJ
+
 # Imports
 from datetime import datetime
 import os
@@ -8,165 +13,109 @@ import geopandas as gpd
 import glob 
 import numpy as np
 import netCDF4 as nc
+from scipy.spatial import KDTree
 
-## Section 1 : Data extraction
-# 1.1 SWOT data
-# For multiple L4 discharge files
-dir_l4 = "/obs/ecastonguay/swot_data/Level_4_Sword_discharge/"
-ext_l4 = "*.nc" 
-path_l4 = os.path.join(dir_l4,ext_l4)
-list_files_l4 = glob.glob(path_l4) 
-# For a single discharge L4 file
+## Section 0 : Make sure the following variables are set correctly before running the code
 continent = "na" # SELECT a continent (africa: af, asia: as, europe: eu, north_america: na, south_america: sa, oceania: oc)
+list_of_station_id = [4127800] # SELECT stations in GRDC database to compare with SWOT data. Enter their stations id in int format.
+target_date_inf = "2023-06-29" # SELECT a time period for the graphs
+target_date_sup = "2024-09-21"
+
+## Section 1 : Extracting the dataset from the SWOT continent file
+# This code loads the single selected continent file
+dir_l4 = "/obs/ecastonguay/swot_data/L4_discharge/"
 if continent not in ['af', 'as', 'eu', 'na', 'sa', 'oc']:
     raise ValueError("Error: continent must be one of the following: 'af' (Africa), 'as' (Asia), 'eu' (Europe), 'na' (North America), 'sa' (South America), 'oc' (Oceania)")    
 file_suffix = "_sword_v16_SOS_results_unconstrained_20230502T204408_20250502T204408_20251219T163700.nc"
 single_file_name = dir_l4 + continent + file_suffix
 data_l4 = nc.Dataset(single_file_name)
-"""
-Display results (data is stored within the groups):
-<class 'netCDF4.Dataset'>
-root group (NETCDF4 data model, file format HDF5):
-    title: SWOT discharge prior information and processing outputs
-    summary: All of the outputs from all processes used to generate SWOT discharge products.
-    keywords: GCMD:Rivers/Streams, GCMD:Discharge/Flow, GCMD:SWOT
-    keywords_vocabulary: NASA Global Change Master Directory (GCMD) Science Keywords
-    doi: 10.5067/SWOT-SOS-V1
-    id: SWOT_L4_DAWG_SOS_DISCHARGE
-    naming_authority: gov.nasa
-    standard_name_vocabulary: CF Standard Name Table v72
-    featureType: timeseries
-    platform: SWOT
-    platform_vocabulary: GCMD platform keywords
-    instrument: KaRIn
-    instrument_vocabulary: GCMD instrument keywords
-    processing_level: L4
-    conventions: CF-1.8, ACDD-1.3
-    acknowledgement: NASA AIST Program Grant Number 80NSSC22K1487, NASA SWOT Science Team Grant Numbers: 80NSSC20K1143, 80NSSC20K1141, 80NSSC20K1340 and CNES SWOT TOSCA fund for the SWOT DAHM project. Additional support from PO.DAAC and the SWOT mission.
-    references: Confluence codebase: https://github.com/SWOT-Confluence; A Framework for Estimating Global River Discharge From the Surface Water and Ocean Topography Satellite Mission: https://doi.org/10.1029/2021WR031614
-    creator_name: SWOT Discharge Algorithm Working Group (DAWG)
-    creator_email: coss.31@osu.edu
-    creator_type: group
-    creator_url: https://github.com/SWOT-Confluence
-    creator_institution: SWOT Science Team
-    institution: NASA Jet Propulsion Laboratory (JPL) Physical Oceanography Distributed Active Archive Center (PO.DAAC)/University of Massachusetts Amherst (UMass)/Ohio State University
-    project: Surface Water And Ocean Topography Discharge Algorithms Working Group (SWOT DAWG)
-    program: NASA SWOT Mission
-    publisher_name: JPL PO.DAAC
-    publisher_email: podaac@podaac.jpl.nasa
-    publisher_url: http://podaac.jpl.nasa.gov/
-    publisher_type: Institution
-    publisher_institution: JPL PO.DAAC
-    metadata_link: https://dx.doi.org/10.5067/SWOT-SOS-V1
-    geospatial_lat_units: degree
-    geospatial_lon_units: degree
-    license: Issued under Creative Commons CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
-    continent: NA
-    run_type: constrained
-    product_version: 0002
-    date_created: 2025-12-19T23:16:31
-    uuid: 9c18518e-5021-4d91-96c8-c045ffdc37b7
-    history: 2025-12-19T23:16:31: SoS version 0002 created by Confluence version ['0.1.0']
-    source: Module results: priors, hivdi, metroman, moi, momma, neobam, offline, postdiagnostics, prediagnostics, sad, sic4dvar, swot, validation, lakeflow, consensus
-    comment: Constrained SoS version includes results from modules: priors, hivdi, metroman, moi, momma, neobam, offline, postdiagnostics, prediagnostics, sad, sic4dvar, swot, validation, lakeflow, consensus and cycle pass observations plus time data from SWOT shapefiles
-    geospatial_lat_min: 8.090422889313631
-    geospatial_lat_max: 82.31075059339722
-    geospatial_lon_min: -166.39687687783314
-    geospatial_lon_max: 8.090422889313631
-    time_coverage_start: 2023-03-29T08:52:15
-    time_coverage_end: 2025-05-03T13:40:52
-    time_coverage_duration: P2Y1M4DT4H48M37S
-    dimensions(sizes): num_reaches(38048), num_nodes(1683122)
-    variables(dimensions): 
-    groups: reaches, nodes, hivdi, metroman, moi, momma, neobam, offline, postdiagnostics, prediagnostics, sad, sic4dvar, validation, lakeflow, consensus
-    """
-# 1.2 GRDC data
-dir_grdc = "/obs/ecastonguay/grdc_data/vicksburg_ms_daily/GRDC-Daily.nc"
-data_grdc = xr.open_dataset(dir_grdc, engine="netcdf4")
-runoff_grdc = data_grdc["runoff_mean"]  # metadata: print(runoff)
-                                        # values: print(runoff.values)
 
-## Section 2 : Reading data (the data is stored in the groups)
-# Fill values
-missing_value_discharge = -999999999999.0 # for consensus_q
-fill_value_discharge = -99999999 # for consensus_q
+## Section 2 : Reading data
+# 2.1 Loop for reading all the GRDC station_id 
+dir_grdc_prefix = "/obs/ecastonguay/grdc_data/"
+ext_grdc = "*.nc"
+path_grdc = os.path.join(dir_grdc_prefix,continent,ext_grdc)
+list_files_grdc = glob.glob(path_grdc)
+for station_id in list_of_station_id:
+    found = 0
+    for grdc_files in list_files_grdc:
+        data_grdc = xr.open_dataset(grdc_files, engine="netcdf4")
+        found_station_id = data_grdc["id"].values[0]
+        if found_station_id == station_id: 
+            found = 1
+            # 2.2 Finding a match between the GRDC gauge and the SWOT data at reach level
+            # get grdc (lat,lon) coordinates of gauge
+            x_found_station = data_grdc["geo_x"].values[0] # x (lat) at the found station
+            y_found_station = data_grdc["geo_y"].values[0]
+            # find the corresponding reach in the continent-level swot data (looking for the reach with the closest coordinates to the station) (consensus_q only available at reach-level)
+            reach_group = data_l4.groups['reaches']
+            x_coordinates_values = reach_group['x'][:] # all x coordinates in swot/l4 data for the na continent
+            y_coordinates_values = reach_group['y'][:]
+            # K-D tree to search nearest neighbor
+            stacked_xy = np.vstack((x_coordinates_values,y_coordinates_values)).T
+            distance, index = KDTree(stacked_xy).query([x_found_station, y_found_station],k=1)
+            if (distance > 100):    # even if the closest reach is quite far, KDTree will still find a match. therefore we need to make sure the distance found isn't too far
+                                    # ADJUST maximum distance
+                print(f"Warning: The nearest reach associated with the station {station_id} is quite far from it's location. This might have an impact on the quality of the comparison.")
+            ## Section 3 : Fetching the discharge data from both sources
+            # 3.1 Fetching consensus_q data from the swot file
+            consensus_group = data_l4.groups["consensus"] # choosing a group
+            consensus_q_variable = consensus_group['consensus_q'] # choosing a variable variable
+            consensus_q_values = consensus_q_variable[:] # getting all the data
+            consensus_q_swot = consensus_q_variable[index] # getting the discharge data at the selected reach
+            # masking the missing values
+            mask_fill_values = consensus_q_swot != consensus_q_variable.missing_value
+            consensus_q_swot_filtered = consensus_q_swot[mask_fill_values]
+            # finding the corresponding time
+            time_swot = consensus_group['time_int'][index]
+            time_swot_filtered = time_swot[mask_fill_values] # again masking the missing values
+            # converting time from int to datetime
+            epoch = np.datetime64('2000-01-01')
+            datetime_swot = epoch + time_swot_filtered.astype('timedelta64[s]')
+            # 3.2 Fetching runoff/discharge data from the grdc file
+            runoff_grdc = data_grdc["runoff_mean"]  # metadata: print(runoff)
+                                                    # values: print(runoff.values)
+            # 3.3 Slicing SWOT data for the right time period
+            target_datetime_inf = np.datetime64(target_date_inf, 'D')
+            target_datetime_sup = np.datetime64(target_date_sup, 'D')
+            index_target_datetime_period = np.where((datetime_swot >= target_datetime_inf) & (datetime_swot <= target_datetime_sup))
+            consensus_q_comparison = consensus_q_swot_filtered[index_target_datetime_period]     
+            datetime_comparison = datetime_swot[index_target_datetime_period]
+            # 3.4 Slicing GRDC data for the right time period
+            runoff_grdc_comparison = runoff_grdc.sel(time=slice(target_date_inf,target_date_sup)) # slicing the entire data to keep values between X and Y dates
+            ## Section 4 : Data visualization
+            # Plot comparison of in-situ with grdc
+            x = 0 # SELECT 1 to plot, 0 to ignore
+            if x == 1:
+                plt.figure(figsize=(12, 6))
+                plt.plot(datetime_comparison,consensus_q_comparison, marker='o', label='SWOT discharge', color='orange')
+                plt.plot(runoff_grdc_comparison.time.values, runoff_grdc_comparison.values, marker='o', label='in situ', color='blue')
 
-# 2.1 Reading consensus discharge data  
-# Consensus group (structure and metadata)
-consensus_group = data_l4.groups["consensus"]
-"""
-# two variables with 1-d each, for the n of reaches
-<class 'netCDF4.Group'>
-group /consensus:
-    dimensions(sizes): 
-    variables(dimensions): float64 consensus_q(num_reaches), int64 time_int(num_reaches)
-    groups: 
-"""
-# Variable 'consensus_q' (structure and metadata)
-consensus_q = consensus_group['consensus_q'] 
-"""
-<class 'netCDF4.Variable'>
-vlen consensus_q(num_reaches)
-    long_name: consensus_discharge
-    valid_max: 10000000
-    short_name: consensus
-    tag_basic_expert: Basic
-    coverage_content_type: modelResult
-    missing_value: -999999999999.0
-    comment: Discharge from the consensus discharge algorithm.
-    fill: -99999999
-    units: m^3/s
-    valid_min: 0
-vlen data type: float64
-path = /consensus
-unlimited dimensions: 
-current shape = (38048,)
-"""
-# Index/slicing the variable (looking at the values)
-consensus_q_values = consensus_q[:] # <class 'numpy.ndarray'>, this is a 1-d array that itself contains arrays
-                                    # tous les segments du continent sont listés ici. chaque segment a un tableau contenant la liste temporelle de toutes les valeurs de débit
-"""
-[array([-1.e+12]) array([-1.e+12]) array([-1.e+12]) ... array([-1.e+12])
- array([-1.e+12]) array([-1.e+12])]
- """
+                plt.title(f"SWOT L4 consensus discharge compared with in situ measurements for reach {selected_reach_id}") # SELECT title
+                plt.xlabel('Time (UTC)') 
+                plt.ylabel('Consensus discharge (m^3/s)')
 
-# 2.2 Reading reach group
-reach_group = data_l4.groups['reaches']
-"""
-<class 'netCDF4.Group'>
-group /reaches:
-    dimensions(sizes): 
-    variables(dimensions): int64 reach_id(num_reaches), float64 x(num_reaches), float64 y(num_reaches), <class 'str'> river_name(num_reaches), <class 'str'> observations(num_reaches), float64 time(num_reaches)
-    groups: 
-"""
-reach_id = reach_group['reach_id'] 
-"""<class 'netCDF4.Variable'>
-int64 reach_id(num_reaches)
-    format: CBBBBBRRRRT
-    comment: Taken from SWORD PDD: id of each reach. The format of none the id is as follows: CBBBBBRRRRT where C = Continent (the first number of the Pfafstetter basin code), B = Remaining Pfafstetter basin codes up to level 6, R = Reach id (assigned sequentially within a level 6 basin starting at the downstream end working upstream, T = Type (1 – river, 3 – lake on river, 4 – dam or waterfall, 5 – unreliable topology, 6 – ghost reach)
-    valid_min: -998
-    valid_max: 1000000000000000000
-    coverage_content_type: referenceInformation
-    long_name: reach_identifier
-path = /reaches
-unlimited dimensions: 
-current shape = (38048,)
-filling on, default _FillValue of -9223372036854775806 used
-"""
-reach_id_values = reach_id[:] # len: 38048
-"""
-[71120000013 71120000043 71120000053 ... 73120001026 73120001036
- 73120001046]
- """
+                plt.legend()
+                plt.grid(True)
 
-## Section 3 : Choosing a reach
+                fig_name = f'in_situ_discharge_comparison_r{selected_reach_id}.png'
+                plt.savefig(f'/obs/ecastonguay/scripts/figures/{fig_name}', dpi=400, bbox_inches='tight')
+                print("Figure saved in /obs/ecastonguay/scripts/figures")
+                plt.show()  
+
+            break
+    if found == 0:
+        print(f"There is no correspondence in the GRDC in situ files for station id {station_id}")
+
+
+## Section X : Graph of the SWOT data only
 selected_reach_id = 74210000201 # 74210000201 for test - article 3, fig 2a; reach on mississippi near bâton rouge
 selected_reach_index_array = np.where(reach_id_values == selected_reach_id) # find the index of the reach i'm looking for (the array contains the index)
                                                                             # array within array; [0][0]
 if (len(selected_reach_index_array[0]) == 0):
     print("Error: reach id not found in the list of reach ids. Please check the reach id and try again.")
 else:
-    selected_reach_index = selected_reach_index_array[0][0]
+    selected_reach_index = selected_reach_index_array[0][0] # [tested]
     discharge_selected_reach = consensus_q[selected_reach_index]
     # masking the missing values
     mask_fill_values = discharge_selected_reach != consensus_q.missing_value
@@ -207,7 +156,7 @@ else:
     discharge_comparison = discharge_selected_reach[index_target_period]     
     datetime_comparison = datetime_selected_reach[index_target_period]
     # plot
-    x = 1 # SELECT 1 to plot, 0 to ignore
+    x = 0 # SELECT 1 to plot, 0 to ignore
     if x == 1:
         plt.figure(figsize=(12, 6))
         plt.plot(datetime_comparison,discharge_comparison, marker='o', label='SWOT discharge', color='orange')
@@ -228,3 +177,72 @@ else:
   
 
 ## Section 5 : Opening GRDC data 
+
+
+## Trash
+# Old code about selecting with reach_id
+"""## Section 3 : Choosing a reach
+selected_reach_id = 74210000201 # 74210000201 for test - article 3, fig 2a; reach on mississippi near bâton rouge
+selected_reach_index_array = np.where(reach_id_values == selected_reach_id) # find the index of the reach i'm looking for (the array contains the index)
+                                                                            # array within array; [0][0]
+if (len(selected_reach_index_array[0]) == 0):
+    print("Error: reach id not found in the list of reach ids. Please check the reach id and try again.")
+else:
+    selected_reach_index = selected_reach_index_array[0][0] # [tested]
+    discharge_selected_reach = consensus_q[selected_reach_index]
+    # masking the missing values
+    mask_fill_values = discharge_selected_reach != consensus_q.missing_value
+    discharge_selected_reach = discharge_selected_reach[mask_fill_values]
+    # finding the corresponding time
+    time_selected_reach = consensus_group['time_int'][selected_reach_index]
+    time_selected_reach = time_selected_reach[mask_fill_values] # again masking the missing values
+    # converting time from int to datetime
+    epoch = np.datetime64('2000-01-01')
+    datetime_selected_reach = epoch + time_selected_reach.astype('timedelta64[s]') # 
+    
+    ## Section 4 : Data visualization
+    # 4.1 In-situ of consensus_q for entire available period
+    x = 0 # SELECT 1 to plot, 0 to ignore
+    if x == 1:
+        plt.figure(figsize=(12, 6))
+        plt.plot(datetime_selected_reach,discharge_selected_reach, marker='o', label='SWOT discharge', color='orange')
+
+        plt.title(f"SWOT L4 consensus discharge and in situ measures for reach {selected_reach_id}")
+        plt.xlabel('Time (UTC)') 
+        plt.ylabel('Consensus discharge (m^3/s)')
+
+        plt.legend()
+        plt.grid(True)
+
+        fig_name = f'all_consensus_q_r{selected_reach_id}.png'
+        plt.savefig(f'/obs/ecastonguay/scripts/figures/{fig_name}', dpi=400, bbox_inches='tight')
+        print("Figure saved in /obs/ecastonguay/scripts/figures")
+        plt.show()  
+
+    # 4.2 Comparing in-situ with grdc # *** réduire fréquence entre les points???
+    # slicing grdc data for 06-2023 to 09-2024 period
+    runoff_grdc = runoff_grdc.sel(time=slice("2023-06-29","2024-09-21")) # slicing the entire data to keep values between X and Y dates
+    # slicing swot data for 06-2023 to 09-2024 period
+    target_date_inf = np.datetime64('2023-06-29', 'D')
+    target_date_sup = np.datetime64('2024-09-21', 'D')
+    index_target_period = np.where((datetime_selected_reach >= target_date_inf) & (datetime_selected_reach <= target_date_sup))
+    discharge_comparison = discharge_selected_reach[index_target_period]     
+    datetime_comparison = datetime_selected_reach[index_target_period]
+    # plot
+    x = 0 # SELECT 1 to plot, 0 to ignore
+    if x == 1:
+        plt.figure(figsize=(12, 6))
+        plt.plot(datetime_comparison,discharge_comparison, marker='o', label='SWOT discharge', color='orange')
+        plt.plot(runoff_grdc.time.values, runoff_grdc.values, marker='o', label='in situ', color='blue')
+
+        plt.title(f"SWOT L4 consensus discharge compared with in situ measurements for reach {selected_reach_id}") # SELECT title
+        plt.xlabel('Time (UTC)') 
+        plt.ylabel('Consensus discharge (m^3/s)')
+
+        plt.legend()
+        plt.grid(True)
+
+        fig_name = f'in_situ_discharge_comparison_r{selected_reach_id}.png'
+        plt.savefig(f'/obs/ecastonguay/scripts/figures/{fig_name}', dpi=400, bbox_inches='tight')
+        print("Figure saved in /obs/ecastonguay/scripts/figures")
+        plt.show()  """
