@@ -76,7 +76,7 @@ values = runoff.values # .time.values pour avoir temps
  """
 # Isolate runoff for certain dates with sel
 runoff_06_2023_09_2024 = runoff.sel(time=slice("2023-06-01","2024-09-01")) # slicing the entire data to keep values between X and Y dates
-print(data["geo_y"].values[0])
+#print(data["geo_y"].values[0])
 
 ## Section SWOt example
 data_l4 = nc.Dataset(single_file_name)
@@ -140,6 +140,7 @@ root group (NETCDF4 data model, file format HDF5):
 # 2.1 Reading consensus discharge data  
 # Consensus group (structure and metadata)
 consensus_group = data_l4.groups["consensus"]
+#print(consensus_group)
 """
 # two variables with 1-d each, for the n of reaches
 <class 'netCDF4.Group'>
@@ -171,6 +172,7 @@ current shape = (38048,)
 # Index/slicing the variable (looking at the values)
 consensus_q_values = consensus_q[:] # <class 'numpy.ndarray'>, this is a 1-d array that itself contains arrays
                                     # tous les segments du continent sont listés ici. chaque segment a un tableau contenant la liste temporelle de toutes les valeurs de débit
+print(type(consensus_q_values))
 """
 [array([-1.e+12]) array([-1.e+12]) array([-1.e+12]) ... array([-1.e+12])
  array([-1.e+12]) array([-1.e+12])]
@@ -200,7 +202,6 @@ current shape = (38048,)
 filling on, default _FillValue of -9223372036854775806 used
 """
 reach_id_values = reach_id[:] # len: 38048
-print(type(reach_id_values))
 """
 [71120000013 71120000043 71120000053 ... 73120001026 73120001036
  73120001046]
