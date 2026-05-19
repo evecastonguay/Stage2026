@@ -13,7 +13,7 @@ import glob
 import xml.etree.ElementTree as ET
 import netCDF4 as nc
 
-## Section GRDC example
+##### ----- Section GRDC example
 continent = "na" # SELECT a continent (africa: af, asia: as, europe: eu, north_america: na, south_america: sa, oceania: oc)
 dir_l4 = "/obs/ecastonguay/swot_data/L4_discharge/"
 if continent not in ['af', 'as', 'eu', 'na', 'sa', 'oc']:
@@ -78,7 +78,7 @@ values = runoff.values # .time.values pour avoir temps
 runoff_06_2023_09_2024 = runoff.sel(time=slice("2023-06-01","2024-09-01")) # slicing the entire data to keep values between X and Y dates
 #print(data["geo_y"].values[0])
 
-## Section SWOt example
+##### ----- Section SWOt example
 data_l4 = nc.Dataset(single_file_name)
 """
 Display results (data is stored within the groups):
