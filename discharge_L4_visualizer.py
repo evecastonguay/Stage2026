@@ -31,9 +31,13 @@ target_date_sup = "2024-09-21"
 use_target_date_filter = True # SELECT True if we want to use the above specified target dates, False if the goal is to display the discharge data for all time period available
 plot_discharge_comparison = 1 # SELECT 1 to plot, 0 to ignore
 # 0.2 Plot regarding all discharge data for a specific reach
-selected_reach_id = 74210000201 # SELECT a reach to plot. 
-                                # 74210000201 for test - article 3, fig 2a; reach on mississippi near bâton rouge
-plot_reach_discharge = 1 # SELECT 1 to plot, 0 to ignore
+selected_reach_id = 81130400021 # SELECT a reach to plot. 
+                                # 74210000201 article 3, fig 2a - reach on mississippi near bâton rouge (na)
+                                # 81130400011 article 3, fig 2b - the reach my code found (na)
+                                # 81130400021 article 3, fig 2b - the reach they actually used (na)
+                                # 21602400201 article 3, fig 2c - the reach they actually used (eu)
+                                # 23229000561 article 3, fig 2d - the reach they actually used (eu)
+plot_reach_discharge = 0 # SELECT 1 to plot, 0 to ignore
 
 ## Section 1 : Extracting the dataset from the SWOT continent file
 # This code loads the single selected continent file
@@ -61,72 +65,83 @@ if plot_discharge_comparison == 1:
                 # 2.2 Finding a match between the GRDC gauge and the SWOT data at reach level
                 # get grdc (lat,lon) coordinates of gauge
                 x_found_station = data_grdc["geo_x"].values[0] # x (lat) at the found station
-                y_found_station = data_grdc["geo_y"].values[0]
+                y_found_station = data_grdc["geo_y"].values[0] 
                 # find the corresponding reach in the continent-level swot data (looking for the reach with the closest coordinates to the station) (consensus_q only available at reach-level)
                 reach_group = data_l4.groups['reaches']
                 x_coordinates_values = reach_group['x'][:] # all x coordinates in swot/l4 data for the na continent
                 y_coordinates_values = reach_group['y'][:]
                 # K-D tree to search nearest neighbor
                 stacked_xy = np.vstack((x_coordinates_values,y_coordinates_values)).T
-                distance, index = KDTree(stacked_xy).query([x_found_station, y_found_station],k=1)
-                print(f"Distance at station {station_id} is {distance}")
-                if (distance > 0.5):    # even if the closest reach is far, KDTree will still find a match. therefore we need to make sure the distance found isn't too big
-                                        # for reference, a 5,4 km distance between reach and gauge equals to a distance = 0.0557
-                                        # ADJUST maximum distance
-                    print(f"Warning: [2.2] The nearest reach associated with the station {station_id} is quite far from it's location. This might have an impact on the quality of the comparison.")
-                ## Section 3 : Fetching the discharge data from both sources
-                # 3.1 Fetching consensus_q data from the swot file
-                consensus_group = data_l4.groups["consensus"] # choosing a group
-                consensus_q_variable = consensus_group['consensus_q'] # choosing a variable variable
-                consensus_q_values = consensus_q_variable[:] # getting all the data
-                consensus_q_swot = consensus_q_variable[index] # getting the discharge data at the selected reach
-                # closest reach's id
-                closest_reach_id = data_l4.groups['reaches']['reach_id'][index]
-                # closest reach's coordinates
-                print(f"The coordinates of the closest reach are ({data_l4.groups['reaches']['y'][index]},{data_l4.groups['reaches']['x'][index]})")
-                # masking the missing values
-                mask_fill_values = consensus_q_swot != consensus_q_variable.missing_value
-                consensus_q_swot_filtered = consensus_q_swot[mask_fill_values]
-                # finding the corresponding time
-                time_swot = consensus_group['time_int'][index]
-                time_swot_filtered = time_swot[mask_fill_values] # again masking the missing values
-                # converting time from int to datetime
-                epoch = np.datetime64('2000-01-01')
-                datetime_swot = epoch + time_swot_filtered.astype('timedelta64[s]')
-                # 3.2 Fetching runoff/discharge data from the grdc file
-                runoff_grdc = data_grdc["runoff_mean"]  # metadata: print(runoff)
-                                                        # values: print(runoff.values)
-                if (use_target_date_filter == True):
-                    # 3.3 Slicing SWOT data for the right time period
-                    target_datetime_inf = np.datetime64(target_date_inf, 'D')
-                    target_datetime_sup = np.datetime64(target_date_sup, 'D')
-                    index_target_datetime_period = np.where((datetime_swot >= target_datetime_inf) & (datetime_swot <= target_datetime_sup))
-                    consensus_q_comparison = consensus_q_swot_filtered[index_target_datetime_period]     
-                    datetime_comparison = datetime_swot[index_target_datetime_period]
-                    # 3.4 Slicing GRDC data for the right time period
-                    runoff_grdc_comparison = runoff_grdc.sel(time=slice(target_date_inf,target_date_sup)) # slicing the entire data to keep values between X and Y dates
-                else: 
-                    datetime_comparison = datetime_swot
-                    consensus_q_comparison = consensus_q_swot_filtered
-                    runoff_grdc_comparison = runoff_grdc
-                ## Section 4 : Data visualization
-                # 4.1 Plot comparison of in-situ with grdc 
-                plt.figure(figsize=(12, 6))
-                plt.plot(datetime_comparison,consensus_q_comparison, marker='o', markersize=5, label='SWOT discharge', color='darkorange', markeredgecolor='white', markeredgewidth=0.4)
-                plt.plot(runoff_grdc_comparison.time.values, runoff_grdc_comparison.values, marker='o', markersize=5, label='In situ', color='tab:blue', alpha=1, markeredgecolor='white', markeredgewidth=0.4)
+                k_neighbors = 10
+                distance_list, index_list = KDTree(stacked_xy).query([x_found_station, y_found_station],k=k_neighbors) # we take the k nearest neighboors so that if the nearest reach doesn't contain swot data, we look at the second nearest, ...
+                ii = 0
+                while ii < k_neighbors:
+                    distance = distance_list[ii]
+                    index = index_list[ii]
+                    ## Section 3 : Fetching the discharge data from both sources
+                    # 3.1 Fetching consensus_q data from the swot file
+                    consensus_group = data_l4.groups["consensus"] # choosing a group
+                    consensus_q_variable = consensus_group['consensus_q'] # choosing a variable variable
+                    consensus_q_values = consensus_q_variable[:] # getting all the data
+                    consensus_q_swot = consensus_q_variable[index] # getting the discharge data at the selected reach. <class 'numpy.ndarray'>
+                    # closest reach's id
+                    closest_reach_id = data_l4.groups['reaches']['reach_id'][index]
+                    # masking the missing values
+                    mask_fill_values = consensus_q_swot != consensus_q_variable.missing_value
+                    consensus_q_swot_filtered = consensus_q_swot[mask_fill_values]
+                    if consensus_q_swot_filtered.size == 0:
+                        ii += 1
+                        print("Warning: The closest reach doesn't contain valid data. Moving on to the next closest reach.")
+                        continue
+                    # printing some information related to the nearest reach found
+                    print(f"Distance of the closest and data-containing reach to station {station_id} is {distance}")
+                    if (distance > 0.5):    # even if the closest reach is far, KDTree will still find a match. therefore we need to make sure the distance found isn't too big
+                                            # for reference, a 5,4 km distance between reach and gauge equals to a distance = 0.0557
+                                            # ADJUST maximum distance
+                        print(f"Warning: [2.2] The nearest reach associated with the station {station_id} is quite far from it's location. This might have an impact on the quality of the comparison.")
+                    print(f"The closest and data-containing reach's id is {closest_reach_id}")
+                    print(f"The coordinates of the closest and data-containing reach are ({data_l4.groups['reaches']['y'][index]},{data_l4.groups['reaches']['x'][index]})")
+                    # finding the corresponding time
+                    time_swot = consensus_group['time_int'][index]
+                    time_swot_filtered = time_swot[mask_fill_values] # again masking the missing values
+                    # converting time from int to datetime
+                    epoch = np.datetime64('2000-01-01')
+                    datetime_swot = epoch + time_swot_filtered.astype('timedelta64[s]')
+                    # 3.2 Fetching runoff/discharge data from the grdc file
+                    runoff_grdc = data_grdc["runoff_mean"]  # metadata: print(runoff)
+                                                            # values: print(runoff.values)
+                    if (use_target_date_filter == True):
+                        # 3.3 Slicing SWOT data for the right time period
+                        target_datetime_inf = np.datetime64(target_date_inf, 'D')
+                        target_datetime_sup = np.datetime64(target_date_sup, 'D')
+                        index_target_datetime_period = np.where((datetime_swot >= target_datetime_inf) & (datetime_swot <= target_datetime_sup))
+                        consensus_q_comparison = consensus_q_swot_filtered[index_target_datetime_period]     
+                        datetime_comparison = datetime_swot[index_target_datetime_period]
+                        # 3.4 Slicing GRDC data for the right time period
+                        runoff_grdc_comparison = runoff_grdc.sel(time=slice(target_date_inf,target_date_sup)) # slicing the entire data to keep values between X and Y dates
+                    else: 
+                        datetime_comparison = datetime_swot
+                        consensus_q_comparison = consensus_q_swot_filtered
+                        runoff_grdc_comparison = runoff_grdc
+                    ## Section 4 : Data visualization
+                    # 4.1 Plot comparison of in-situ with grdc 
+                    plt.figure(figsize=(12, 6))
+                    plt.plot(datetime_comparison,consensus_q_comparison, marker='o', markersize=5, label='SWOT discharge', color='darkorange', markeredgecolor='white', markeredgewidth=0.4)
+                    plt.plot(runoff_grdc_comparison.time.values, runoff_grdc_comparison.values, marker='o', markersize=5, label='In situ', color='tab:blue', alpha=1, markeredgecolor='white', markeredgewidth=0.4)
 
-                plt.title(f"In situ runoff measurements of station {station_id} and the SWOT L4 consensus discharge \nof it's nearest corresponding reach {closest_reach_id}") # SELECT title
-                plt.xlabel('Time (UTC)') 
-                plt.ylabel(r'Discharge (m$^3$/s)')
+                    plt.title(f"In situ runoff measurements of station {station_id} and the SWOT L4 consensus discharge \nof it's nearest corresponding reach {closest_reach_id}") # SELECT title
+                    plt.xlabel('Time (UTC)') 
+                    plt.ylabel(r'Discharge (m$^3$/s)')
 
-                plt.legend()
-                plt.grid(True)
+                    plt.legend()
+                    plt.grid(True)
 
-                fig_name = f'discharge_comparison_station{station_id}_r{closest_reach_id}.png' # SELECT file name
-                plt.savefig(f'/obs/ecastonguay/scripts/figures/{fig_name}', dpi=400, bbox_inches='tight')
-                print("Figure saved in /obs/ecastonguay/scripts/figures")
-                plt.show()  
-                break
+                    fig_name = f'discharge_comparison_station{station_id}_r{closest_reach_id}.png' # SELECT file name
+                    plt.savefig(f'/obs/ecastonguay/scripts/figures/{fig_name}', dpi=400, bbox_inches='tight')
+                    print("Figure saved in /obs/ecastonguay/scripts/figures")
+                    plt.show()  
+                    break # while ii < k_neighbors:
+                break # for grdc_files in list_files_grdc: (has to stay in the 'if found_station_id == station_id:')
         if found == 0:
             print(f"There is no correspondence in the GRDC in situ files for station id {station_id}")
 
