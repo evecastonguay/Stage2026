@@ -12,33 +12,70 @@ import glob
 import xml.etree.ElementTree as ET
 import numpy as np
 from scipy.spatial import KDTree
+from zipfile import ZipFile
+import netCDF4 as nc
 
 ## Tests
 # 1) pandas series
 serie1 = pd.Series([7.498016e+08])
 
-# 2) 
-"""dates = np.array(['2023-07-29T22:11:58' ,'2023-08-29T06:28:25', '2023-09-09T15:42:10',
- '2023-09-19T03:13:31' ,'2023-09-30T12:27:13', '2023-10-21T09:12:17',
- '2023-10-30T20:43:38'], dtype='datetime64[ns]')
-target_date = np.datetime64('2023-07-29', 'D')
-dates_day = dates.astype('datetime64[D]')
-print(np.where(dates_day > target_date)[0]) # renvoie les indices qui correspondent aux dates voulues"""
-
-# 3)
-x = np.array([711, 712, 722,731])
-y = np.array([3, 4, 5,6])
+# 2) probleme soudain swot
+x = np.array([711, 711, 711,711]) #lon
+y = np.array([3, 4, 5,6]) # lat
 stacked_xy = np.vstack((x,y)).T # https://numpy.org/doc/stable/reference/generated/numpy.vstack.html#numpy-vstack
-"""[[711   3]
- [712   4]
- [742   5]
- [731   6]]"""
+#[[711   3]
+ #[712   4]
+# [742   5]
+ #[731   6]]
 
 target_lat, target_lon = 7, 750
 target = np.array([target_lat,target_lon]) # (2,)
 
-distance, index = KDTree(stacked_xy).query([target_lon, target_lat],k=1)
-print(index)
+distance, index = KDTree(stacked_xy).query([target_lon, target_lat],k=2)
+#print(index[0])
+
+tt = 3
+while tt < 10:
+    print(tt)
+    tt +=1
+    fill = 711
+    mask_fill = x != fill
+    x_filtered = x[mask_fill]
+    print(type(x_filtered))
+    if x_filtered.size == 0:
+        print("vide")
+        continue
+    print("nonono")
+    break
+
+
+
+"""
+path = '/obs/ecastonguay/grdc_data/na/GRDC-Daily.nc'
+data = xr.open_dataset(path, engine="netcdf4")
+<xarray.Dataset> Size: 977kB
+Dimensions:              (time: 20252, id: 10)
+Coordinates:
+  * time                 (time) datetime64[ns] 162kB 1970-05-01 ... 2025-10-10
+  * id                   (id) int64 80B 4101200 4101250 ... 4101500 4101501
+Data variables:
+    runoff_mean          (time, id) float32 810kB ...
+    area                 (id) float32 40B ...
+    country              (id) <U2 80B ...
+    geo_x                (id) float32 40B ...
+    geo_y                (id) float32 40B ...
+    geo_z                (id) float32 40B ...
+    owneroforiginaldata  (id) <U58 2kB ...
+    river_name           (id) <U19 760B ...
+    station_name         (id) <U44 2kB ...
+    timezone             (id) float32 40B ...
+Attributes:
+    title:          Mean daily discharge (Q)
+    Conventions:    CF-1.7
+    references:     grdc.bafg.de
+    institution:    GRDC
+    history:        Download from GRDC Database, 20/05/2026
+    missing_value:  -999.000"""
 
 
 
@@ -51,4 +88,19 @@ best_index = np.argmin(distances)
 print(f"Index de la paire la plus proche : {best_index}")
 print(f"Coordonnées trouvées : lat={y[best_index]}, lon={x[best_index]}")
 print(f"Distance : {distances[best_index]:.4f}")
+"""
+
+"""x = np.array([711, 712, 722,731]) #lon
+y = np.array([3, 4, 5,6]) # lat
+stacked_xy = np.vstack((x,y)).T # https://numpy.org/doc/stable/reference/generated/numpy.vstack.html#numpy-vstack
+#[[711   3]
+ #[712   4]
+# [742   5]
+ #[731   6]]
+
+target_lat, target_lon = 7, 750
+target = np.array([target_lat,target_lon]) # (2,)
+
+distance, index = KDTree(stacked_xy).query([target_lon, target_lat],k=1)
+print(index)
 """
