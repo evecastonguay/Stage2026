@@ -12,18 +12,13 @@ from shapely.geometry import Point
 import glob
 import xml.etree.ElementTree as ET
 import netCDF4 as nc
+import numpy as np
 
 ##### ----- Section GRDC example
-continent = "na" # SELECT a continent (africa: af, asia: as, europe: eu, north_america: na, south_america: sa, oceania: oc)
-dir_l4 = "/obs/ecastonguay/swot_data/L4_discharge/"
-if continent not in ['af', 'as', 'eu', 'na', 'sa', 'oc']:
-    raise ValueError("Error: continent must be one of the following: 'af' (Africa), 'as' (Asia), 'eu' (Europe), 'na' (North America), 'sa' (South America), 'oc' (Oceania)")    
-file_suffix = "_sword_v16_SOS_results_unconstrained_20230502T204408_20250502T204408_20251219T163700.nc"
-single_file_name = dir_l4 + continent + file_suffix
-data_l4 = nc.Dataset(single_file_name)
+#data_l4 = nc.Dataset(single_file_name)
 # Open netCDF file
-dir_grdc = "/obs/ecastonguay/grdc_data/na/GRDC-Daily.nc"
-data = xr.open_dataset(dir_grdc, engine="netcdf4")
+#dir_grdc = "/obs/ecastonguay/grdc_data/na/GRDC-Daily.nc"
+#data = xr.open_dataset(dir_grdc, engine="netcdf4")
 """
 <xarray.Dataset> Size: 408kB
 Dimensions:              (time: 33968, id: 1)
@@ -49,7 +44,7 @@ Attributes:
     history:        Download from GRDC Database, 11/05/2026
     missing_value:  -999.000
     """
-runoff = data["runoff_mean"]    # metadata: print(runoff)
+#runoff = data["runoff_mean"]    # metadata: print(runoff)
                                 # values: print(runoff.values)                         
 """
 # Display of runoff
@@ -62,7 +57,7 @@ Attributes:
     units:      m3/s
     long_name:  Mean daily discharge (Q)
     """
-values = runoff.values # .time.values pour avoir temps
+#values = runoff.values # .time.values pour avoir temps
 #print(values)
 """
 # Display of runoff.values
@@ -75,10 +70,11 @@ values = runoff.values # .time.values pour avoir temps
  [6399.597]]
  """
 # Isolate runoff for certain dates with sel
-runoff_06_2023_09_2024 = runoff.sel(time=slice("2023-06-01","2024-09-01")) # slicing the entire data to keep values between X and Y dates
+#runoff_06_2023_09_2024 = runoff.sel(time=slice("2023-06-01","2024-09-01")) # slicing the entire data to keep values between X and Y dates
 #print(data["geo_y"].values[0])
 
 ##### ----- Section SWOt example
+single_file_name = "/obs/ecastonguay/swot_data/L4_discharge/na_sword_v16_SOS_results_unconstrained_20230502T204408_20250502T204408_20251219T163700.nc"  
 data_l4 = nc.Dataset(single_file_name)
 """
 Display results (data is stored within the groups):
@@ -151,6 +147,7 @@ group /consensus:
 """
 # Variable 'consensus_q' (structure and metadata)
 consensus_q = consensus_group['consensus_q'] 
+
 """
 <class 'netCDF4.Variable'>
 vlen consensus_q(num_reaches)
@@ -172,7 +169,7 @@ current shape = (38048,)
 # Index/slicing the variable (looking at the values)
 consensus_q_values = consensus_q[:] # <class 'numpy.ndarray'>, this is a 1-d array that itself contains arrays
                                     # tous les segments du continent sont listés ici. chaque segment a un tableau contenant la liste temporelle de toutes les valeurs de débit
-print(type(consensus_q_values))
+print(consensus_q_values[1])
 """
 [array([-1.e+12]) array([-1.e+12]) array([-1.e+12]) ... array([-1.e+12])
  array([-1.e+12]) array([-1.e+12])]
@@ -202,6 +199,10 @@ current shape = (38048,)
 filling on, default _FillValue of -9223372036854775806 used
 """
 reach_id_values = reach_id[:] # len: 38048
+selected_reach_id = 71120000013
+selected_reach_index_array = np.where(reach_id_values == selected_reach_id) # find the index of the reach i'm looking for (the array contains the index)
+
+print(selected_reach_index_array[0][0])
 """
 [71120000013 71120000043 71120000053 ... 73120001026 73120001036
  73120001046]
