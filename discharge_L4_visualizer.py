@@ -16,28 +16,28 @@ import netCDF4 as nc
 from scipy.spatial import KDTree
 
 ## Section 0 : Make sure the following variables are set correctly before running the code
+continent = "eu" # SELECT a continent (africa: af, asia: as, europe: eu, north_america: na, south_america: sa, oceania: oc)
+target_date_inf = "2023-08-18" # SELECT a time period for the graphs
+target_date_sup = "2024-09-21" # SWOT data : 2023-03-29 to 2025-05-02
+use_target_date_filter = True # SELECT True if we want to use the above specified target dates, False if the goal is to display the discharge data for all time period available
 # 0.1 Plot regarding discharge comparison
-continent = "na" # SELECT a continent (africa: af, asia: as, europe: eu, north_america: na, south_america: sa, oceania: oc)
-list_of_station_id = [4105850]  # SELECT stations in GRDC database to compare with SWOT data. Enter their stations id in int format.
+list_of_station_id = [3626000]  # SELECT stations in GRDC database to compare with SWOT data. Enter their stations id in int format.
                                 # na
                                 # 4127800 : article 3, fig 2a - Mississippi River near Baton Rouge, Louisiana, United States
                                 # 4105850 : article 3, fig 2b - Kenai River near Soldotna, Alaska, United States
                                 # eu
                                 # 6139415 : article 3, fig 2c - Le Drac River near Grenoble, France
-                                # 
-                                
-target_date_inf = "2023-06-29" # SELECT a time period for the graphs
-target_date_sup = "2024-09-21"
-use_target_date_filter = True # SELECT True if we want to use the above specified target dates, False if the goal is to display the discharge data for all time period available
-plot_discharge_comparison = 1 # SELECT 1 to plot, 0 to ignore
+                                # sa
+                                # 3626000 : amazonie, cours d'eau large de 3 km
+plot_discharge_comparison = 0 # SELECT 1 to plot, 0 to ignore
 # 0.2 Plot regarding all discharge data for a specific reach
-selected_reach_id = 81130400021 # SELECT a reach to plot. 
+selected_reach_id = 23229000561 # SELECT a reach to plot. 
                                 # 74210000201 article 3, fig 2a - reach on mississippi near bâton rouge (na)
                                 # 81130400011 article 3, fig 2b - the reach my code found (na)
                                 # 81130400021 article 3, fig 2b - the reach they actually used (na)
                                 # 21602400201 article 3, fig 2c - the reach they actually used (eu)
                                 # 23229000561 article 3, fig 2d - the reach they actually used (eu)
-plot_reach_discharge = 0 # SELECT 1 to plot, 0 to ignore
+plot_reach_discharge = 1 # SELECT 1 to plot, 0 to ignore
 
 ## Section 1 : Extracting the dataset from the SWOT continent file
 # This code loads the single selected continent file
@@ -110,7 +110,7 @@ if plot_discharge_comparison == 1:
                     # 3.2 Fetching runoff/discharge data from the grdc file
                     runoff_grdc = data_grdc["runoff_mean"]  # metadata: print(runoff)
                                                             # values: print(runoff.values)
-                    if (use_target_date_filter == True):
+                    if use_target_date_filter:
                         # 3.3 Slicing SWOT data for the right time period
                         target_datetime_inf = np.datetime64(target_date_inf, 'D')
                         target_datetime_sup = np.datetime64(target_date_sup, 'D')
@@ -136,7 +136,10 @@ if plot_discharge_comparison == 1:
                     plt.legend()
                     plt.grid(True)
 
-                    fig_name = f'discharge_comparison_station{station_id}_r{closest_reach_id}.png' # SELECT file name
+                    if use_target_date_filter:
+                        fig_name = f'discharge_comparison_station{station_id}_r{closest_reach_id}_{target_date_inf}_{target_date_sup}.png' # SELECT file name
+                    else:
+                        fig_name = f'discharge_comparison_station{station_id}_r{closest_reach_id}.png' # SELECT file name
                     plt.savefig(f'/obs/ecastonguay/scripts/figures/{fig_name}', dpi=400, bbox_inches='tight')
                     print("Figure saved in /obs/ecastonguay/scripts/figures")
                     plt.show()  
@@ -155,7 +158,7 @@ if plot_reach_discharge == 1:
     else:
         # discharge
         selected_reach_index = selected_reach_index_array[0][0] # [tested]
-        consensus_q_variable = data_l4.groups["consensus"]['consensus_q'] 
+        consensus_q_variable = data_l4.groups["consensus"]['consensus_q'] # <class 'netCDF4.Variable'>
         discharge_selected_reach = consensus_q_variable[selected_reach_index]
         # print reach's coordinates
         print(f"The coordinates of the reach are ({data_l4.groups['reaches']['y'][selected_reach_index]},{data_l4.groups['reaches']['x'][selected_reach_index]})")
@@ -168,9 +171,19 @@ if plot_reach_discharge == 1:
         # converting time from int to datetime
         epoch = np.datetime64('2000-01-01')
         datetime_selected_reach = epoch + time_selected_reach.astype('timedelta64[s]') 
-        
+        # slicing SWOT data for the right time period
+        if use_target_date_filter:
+            target_datetime_inf = np.datetime64(target_date_inf, 'D')
+            target_datetime_sup = np.datetime64(target_date_sup, 'D')
+            index_target_datetime_period = np.where((datetime_selected_reach >= target_datetime_inf) & (datetime_selected_reach <= target_datetime_sup))
+            datetime_plot = datetime_selected_reach[index_target_datetime_period]
+            discharge_plot = discharge_selected_reach[index_target_datetime_period]  
+        else:
+            datetime_plot = datetime_selected_reach
+            discharge_plot = discharge_selected_reach
+         
         plt.figure(figsize=(12, 6))
-        plt.plot(datetime_selected_reach,discharge_selected_reach, marker='o', markersize=5, color='darkorange', markeredgecolor='white', markeredgewidth=0.4)
+        plt.plot(datetime_plot,discharge_plot, marker='o', markersize=5, color='darkorange', markeredgecolor='white', markeredgewidth=0.4)
 
         plt.title(f"SWOT L4 consensus discharge for reach {selected_reach_id}") # SELECT title
         plt.xlabel('Time (UTC)') 
@@ -178,7 +191,10 @@ if plot_reach_discharge == 1:
 
         plt.grid(True)
 
-        fig_name = f'discharge_r{selected_reach_id}.png' # SELECT file name
+        if use_target_date_filter:
+            fig_name = f'discharge_r{selected_reach_id}_{target_date_inf}_{target_date_sup}.png' # SELECT file name
+        else:
+            fig_name = f'discharge_r{selected_reach_id}.png' # SELECT file name
         plt.savefig(f'/obs/ecastonguay/scripts/figures/{fig_name}', dpi=400, bbox_inches='tight')
         print("Figure saved in /obs/ecastonguay/scripts/figures")
         plt.show()  
