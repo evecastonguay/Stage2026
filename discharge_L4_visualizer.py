@@ -1,4 +1,5 @@
-# Visualizer of the SWOT discharge L4 data and GRDC in situ values for data analysis
+# Provides comparison graph of SWOT discharge L4 data and GRDC in situ values.
+# Can also generate graphical representation of consensus discharge data for a selected reach.
 # Author: Eve Castonguay, LIRA (CNRS)
 # Creation date: 2026-05-15 [YYYY-MM-DD]
 # Version 0.1: AAAA-MM-JJ
