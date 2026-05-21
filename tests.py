@@ -19,36 +19,141 @@ import netCDF4 as nc
 # 1) pandas series
 serie1 = pd.Series([7.498016e+08])
 
-# 2) probleme soudain swot
-x = np.array([711, 711, 711,711]) #lon
-y = np.array([3, 4, 5,6]) # lat
-stacked_xy = np.vstack((x,y)).T # https://numpy.org/doc/stable/reference/generated/numpy.vstack.html#numpy-vstack
-#[[711   3]
- #[712   4]
-# [742   5]
- #[731   6]]
+# 2)
+continent = "sa" # SELECT a continent (africa: af, asia: as, europe: eu, north_america: na, south_america: sa, oceania: oc)
+dir_grdc_prefix = "/obs/ecastonguay/grdc_data/"
+watershed_file_name = "stationbasins_" + continent + ".geojson"
+cont_file_name = continent + ".nc"
 
-target_lat, target_lon = 7, 750
-target = np.array([target_lat,target_lon]) # (2,)
+path_grdc = os.path.join(dir_grdc_prefix,continent,cont_file_name)
+data = xr.open_dataset(path_grdc, engine="netcdf4")
+print(data)
 
-distance, index = KDTree(stacked_xy).query([target_lon, target_lat],k=2)
-#print(index[0])
+"""
+# 2) vérifier que mes données swot sont ok
+# Imports
+from datetime import datetime
+import os
+import xarray as xr
+import matplotlib.pyplot as plt
+import pandas as pd
+import geopandas as gpd
+import glob 
+import numpy as np
+import netCDF4 as nc
+from scipy.spatial import KDTree
 
-tt = 3
-while tt < 10:
-    print(tt)
-    tt +=1
-    fill = 711
-    mask_fill = x != fill
-    x_filtered = x[mask_fill]
-    print(type(x_filtered))
-    if x_filtered.size == 0:
-        print("vide")
-        continue
-    print("nonono")
-    break
+## Section 0 : Make sure the following variables are set correctly before running the code
+continent = "na" # SELECT a continent (africa: af, asia: as, europe: eu, north_america: na, south_america: sa, oceania: oc)
+target_date_inf = "2023-06-29" # SELECT a time period for the graphs
+target_date_sup = "2024-08-02" # SWOT data : 2023-03-29 to 2025-05-02
+use_target_date_filter = False # SELECT True if we want to use the above specified target dates, False if the goal is to display the discharge data for all time period available
+# 0.2 Plot regarding all discharge data for a specific reach
+selected_reach_id = 81130400011 # SELECT a reach to plot. 
+                                # 74210000201 article 3, fig 2a - reach on mississippi near bâton rouge (na)
+                                # 81130400011 article 3, fig 2b - the reach my code found (na)
+                                # 81130400021 article 3, fig 2b - the reach they actually used (na)
+                                # 21602400201 article 3, fig 2c - the reach they actually used (eu)
+                                # 23229000561 article 3, fig 2d - the reach they actually used (eu)
+plot_reach_discharge = 1 # SELECT 1 to plot, 0 to ignore
+
+## Section 1 : Extracting the dataset from the SWOT continent file
+# This code loads the single selected continent file
+dir_l4 = "/obs/ecastonguay/swot_data/L4_discharge/"
+if continent not in ['af', 'as', 'eu', 'na', 'sa', 'oc']:
+    raise ValueError("Error: [1] Continent must be one of the following: 'af' (Africa), 'as' (Asia), 'eu' (Europe), 'na' (North America), 'sa' (South America), 'oc' (Oceania)")    
+file_suffix = "_sword_v16_SOS_results_unconstrained_20230502T204408_20250502T204408_20251219T163700.nc"
+single_file_name = dir_l4 + continent + file_suffix
+data_l4 = nc.Dataset(single_file_name)
+
+# verif de chat
+# Ajoute ça AVANT ta boucle de traitement :
+print("=== DIAGNOSTIC ===")
+print(f"consensus_q shape: {data_l4.groups['consensus']['consensus_q'].shape}")
+print(f"time_int shape: {data_l4.groups['consensus']['time_int'].shape}")
+print(f"reach_id shape: {data_l4.groups['reaches']['reach_id'].shape}")
+
+# Affiche les métadonnées temporelles
+time_var = data_l4.groups['consensus']['time_int']
+print(f"time_int units: {time_var.units if hasattr(time_var, 'units') else 'NOT FOUND'}")
+print(f"time_int calendar: {time_var.calendar if hasattr(time_var, 'calendar') else 'NOT FOUND'}")
 
 
+# 4.2 Plot all discharge data for a specific reach, without in situ data comparison
+if plot_reach_discharge == 1:
+    reach_id_values = data_l4.groups['reaches']['reach_id'][:]
+    selected_reach_index_array = np.where(reach_id_values == selected_reach_id) # find the index of the reach i'm looking for (the array contains the index)
+                                                                                # array within array; [0][0]
+    if (len(selected_reach_index_array[0]) == 0):
+        print("Error: [4.2] Reach id not found in the list of reach ids. Please check the reach id and try again.")
+    else:
+        # discharge
+        selected_reach_index = selected_reach_index_array[0][0] # OK
+        
+        consensus_q_data = data_l4.groups["consensus"]['consensus_q'][:] # ndarray
+        consensus_q_variable = data_l4.groups["consensus"]['consensus_q'] # ndarray
+        
+        print(consensus_q_data.size)
+        discharge_selected_reach = consensus_q_data[selected_reach_index] # tableau des données par heure pour reach xxxxx
+        print('data unmasked',discharge_selected_reach) 
+
+        # print reach's coordinates
+        print(f"The coordinates of the reach are ({data_l4.groups['reaches']['y'][:][selected_reach_index]},{data_l4.groups['reaches']['x'][:][selected_reach_index]})") # (60.52684230165204,-151.13600862937432)
+        
+        # masking the missing discharge values
+        print(consensus_q_variable.missing_value)
+        mask_fill_q = discharge_selected_reach != consensus_q_variable.missing_value # *** use numpy masked array instead?
+        discharge_selected_reach = discharge_selected_reach[mask_fill_q]
+        
+        # finding the corresponding time
+        time_selected_reach = data_l4.groups["consensus"]['time_int'][:][selected_reach_index]
+        time_selected_reach = time_selected_reach[mask_fill_q] # again masking the missing values
+
+        # Après extraction, vérifie la synchronisation :
+        print(f"discharge array shape after indexing: {discharge_selected_reach.shape}")
+        print(f"time array shape after indexing: {time_selected_reach.shape}")
+        print(f"mask True count: {mask_fill_q.sum()}")
+        print(f"discharge shape after masking: {discharge_selected_reach[mask_fill_q].shape}")
+        print(f"time shape after masking: {time_selected_reach[mask_fill_q].shape}")
+
+        # converting time from int to datetime
+        epoch = np.datetime64('2000-01-01')
+        datetime_selected_reach = epoch + time_selected_reach.astype('timedelta64[s]') 
+        
+        yyy = 1
+        if yyy == 1:
+            diff = (datetime(2000,1,1) - datetime(1970,1,1)).total_seconds()
+            time_plot_sp = pd.to_datetime(time_selected_reach + diff, unit='s') # *** not exact, seconds missing,
+             # method1 == method2 !!
+        # slicing SWOT data for the right time period
+        if use_target_date_filter:
+            target_datetime_inf = np.datetime64(target_date_inf, 'D')
+            target_datetime_sup = np.datetime64(target_date_sup, 'D')
+            index_target_datetime_period = np.where((datetime_selected_reach >= target_datetime_inf) & (datetime_selected_reach <= target_datetime_sup))
+            datetime_plot = datetime_selected_reach[index_target_datetime_period]
+            discharge_plot = discharge_selected_reach[index_target_datetime_period]  
+        else:
+            datetime_plot = datetime_selected_reach
+            discharge_plot = discharge_selected_reach
+         
+        plt.figure(figsize=(12, 6))
+        plt.plot(datetime_plot,discharge_plot, marker='o', markersize=5, color='darkorange', markeredgecolor='white', markeredgewidth=0.4)
+
+        plt.title(f"SWOT L4 consensus discharge for reach {selected_reach_id}") # SELECT title
+        plt.xlabel('Time (UTC)') 
+        plt.ylabel(r'Consensus discharge (m$^3$/s)')
+
+        plt.grid(True)
+
+        if use_target_date_filter:
+            fig_name = f'discharge_r{selected_reach_id}_{target_date_inf}_{target_date_sup}.png' # SELECT file name
+        else:
+            fig_name = f'discharge_r{selected_reach_id}.png' # SELECT file name
+        plt.savefig(f'/obs/ecastonguay/scripts/figures/{fig_name}', dpi=400, bbox_inches='tight')
+        print("Figure saved in /obs/ecastonguay/scripts/figures")
+        plt.show()  
+"""
+    
 
 """
 path = '/obs/ecastonguay/grdc_data/na/GRDC-Daily.nc'
