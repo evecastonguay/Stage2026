@@ -19,7 +19,7 @@ import netCDF4 as nc
 # 1) pandas series
 serie1 = pd.Series([7.498016e+08])
 
-# 2)
+# 2) accéder aux grdc avec plusieurs stations
 continent = "sa" # SELECT a continent (africa: af, asia: as, europe: eu, north_america: na, south_america: sa, oceania: oc)
 dir_grdc_prefix = "/obs/ecastonguay/grdc_data/"
 watershed_file_name = "stationbasins_" + continent + ".geojson"
@@ -28,9 +28,43 @@ cont_file_name = continent + ".nc"
 path_grdc = os.path.join(dir_grdc_prefix,continent,cont_file_name)
 data = xr.open_dataset(path_grdc, engine="netcdf4")
 print(data)
+"""<xarray.Dataset> Size: 65MB
+Dimensions:              (time: 44459, id: 360)
+Coordinates:
+  * time                 (time) datetime64[ns] 356kB 1904-07-31 ... 2026-04-20
+  * id                   (id) int64 3kB 1159100 1159103 ... 1992900 1993401
+Data variables:
+    runoff_mean          (time, id) float32 64MB ...
+    area                 (id) float32 1kB ...
+    country              (id) <U2 3kB ...
+    geo_x                (id) float32 1kB ...
+    geo_y                (id) float32 1kB ...
+    geo_z                (id) float32 1kB ...
+    owneroforiginaldata  (id) <U99 143kB ...
+    river_name           (id) <U23 33kB ...
+    station_name         (id) <U41 59kB ...
+    timezone             (id) float32 1kB ...
+Attributes:
+    title:          Mean daily discharge (Q)
+    Conventions:    CF-1.7
+    references:     grdc.bafg.de
+    institution:    GRDC
+    history:        Download from GRDC Database, 21/05/2026
+    missing_value:  -999.000"""
 
-"""
-# 2) vérifier que mes données swot sont ok
+
+runoff_data = data['runoff_mean'].sel(id=1159100) # selectionne station. dataarray tranché en fonction de l'id
+target_date_inf = "2023-08-18" # SELECT a time period for the graphs
+target_date_sup = "2024-09-21"
+runoff_grdc_comparison = runoff_data.sel(time=slice(target_date_inf,target_date_sup)) # selectionne période pr station
+
+plt.figure(figsize=(12, 6))
+plt.plot(runoff_grdc_comparison.time.values, runoff_grdc_comparison.values, marker='o', markersize=5, color='darkorange', markeredgecolor='white', markeredgewidth=0.4)
+plt.grid(True)
+#plt.show() 
+
+
+"""# 2) vérifier que mes données swot sont ok [fait]
 # Imports
 from datetime import datetime
 import os
@@ -45,11 +79,11 @@ from scipy.spatial import KDTree
 
 ## Section 0 : Make sure the following variables are set correctly before running the code
 continent = "na" # SELECT a continent (africa: af, asia: as, europe: eu, north_america: na, south_america: sa, oceania: oc)
-target_date_inf = "2023-06-29" # SELECT a time period for the graphs
+target_date_inf = "2023-07-29" # SELECT a time period for the graphs
 target_date_sup = "2024-08-02" # SWOT data : 2023-03-29 to 2025-05-02
-use_target_date_filter = False # SELECT True if we want to use the above specified target dates, False if the goal is to display the discharge data for all time period available
+use_target_date_filter = True # SELECT True if we want to use the above specified target dates, False if the goal is to display the discharge data for all time period available
 # 0.2 Plot regarding all discharge data for a specific reach
-selected_reach_id = 81130400011 # SELECT a reach to plot. 
+selected_reach_id = 74210000201 # SELECT a reach to plot. 
                                 # 74210000201 article 3, fig 2a - reach on mississippi near bâton rouge (na)
                                 # 81130400011 article 3, fig 2b - the reach my code found (na)
                                 # 81130400021 article 3, fig 2b - the reach they actually used (na)
@@ -95,7 +129,7 @@ if plot_reach_discharge == 1:
         
         print(consensus_q_data.size)
         discharge_selected_reach = consensus_q_data[selected_reach_index] # tableau des données par heure pour reach xxxxx
-        print('data unmasked',discharge_selected_reach) 
+        #print('data unmasked',discharge_selected_reach) 
 
         # print reach's coordinates
         print(f"The coordinates of the reach are ({data_l4.groups['reaches']['y'][:][selected_reach_index]},{data_l4.groups['reaches']['x'][:][selected_reach_index]})") # (60.52684230165204,-151.13600862937432)
@@ -113,8 +147,8 @@ if plot_reach_discharge == 1:
         print(f"discharge array shape after indexing: {discharge_selected_reach.shape}")
         print(f"time array shape after indexing: {time_selected_reach.shape}")
         print(f"mask True count: {mask_fill_q.sum()}")
-        print(f"discharge shape after masking: {discharge_selected_reach[mask_fill_q].shape}")
-        print(f"time shape after masking: {time_selected_reach[mask_fill_q].shape}")
+        #print(f"discharge shape after masking: {discharge_selected_reach[mask_fill_q].shape}")
+        #print(f"time shape after masking: {time_selected_reach[mask_fill_q].shape}")
 
         # converting time from int to datetime
         epoch = np.datetime64('2000-01-01')
@@ -130,12 +164,15 @@ if plot_reach_discharge == 1:
             target_datetime_inf = np.datetime64(target_date_inf, 'D')
             target_datetime_sup = np.datetime64(target_date_sup, 'D')
             index_target_datetime_period = np.where((datetime_selected_reach >= target_datetime_inf) & (datetime_selected_reach <= target_datetime_sup))
+            print('index target datetime period',index_target_datetime_period)
             datetime_plot = datetime_selected_reach[index_target_datetime_period]
+            print('datetime plot',datetime_plot)
             discharge_plot = discharge_selected_reach[index_target_datetime_period]  
+            print('discharge plot',discharge_plot)
         else:
             datetime_plot = datetime_selected_reach
             discharge_plot = discharge_selected_reach
-         
+        
         plt.figure(figsize=(12, 6))
         plt.plot(datetime_plot,discharge_plot, marker='o', markersize=5, color='darkorange', markeredgecolor='white', markeredgewidth=0.4)
 
