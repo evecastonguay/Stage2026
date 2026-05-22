@@ -14,7 +14,7 @@ import xml.etree.ElementTree as ET
 import netCDF4 as nc
 import numpy as np
 
-##### ----- Section GRDC example
+##### ----------------------------------------------------- Section GRDC example
 #data_l4 = nc.Dataset(single_file_name)
 # Open netCDF file
 #dir_grdc = "/obs/ecastonguay/grdc_data/na/GRDC-Daily.nc"
@@ -73,7 +73,7 @@ Attributes:
 #runoff_06_2023_09_2024 = runoff.sel(time=slice("2023-06-01","2024-09-01")) # slicing the entire data to keep values between X and Y dates
 #print(data["geo_y"].values[0])
 
-##### ----- Section SWOt example
+##### ---------------------------------------------- Section SWOT example
 single_file_name = "/obs/ecastonguay/swot_data/L4_discharge/na_sword_v16_SOS_results_unconstrained_20230502T204408_20250502T204408_20251219T163700.nc"  
 data_l4 = nc.Dataset(single_file_name)
 """
@@ -169,7 +169,7 @@ current shape = (38048,)
 # Index/slicing the variable (looking at the values)
 consensus_q_values = consensus_q[:] # <class 'numpy.ndarray'>, this is a 1-d array that itself contains arrays
                                     # tous les segments du continent sont listés ici. chaque segment a un tableau contenant la liste temporelle de toutes les valeurs de débit
-print(consensus_q_values[1])
+
 """
 [array([-1.e+12]) array([-1.e+12]) array([-1.e+12]) ... array([-1.e+12])
  array([-1.e+12]) array([-1.e+12])]
@@ -202,8 +202,27 @@ reach_id_values = reach_id[:] # len: 38048
 selected_reach_id = 71120000013
 selected_reach_index_array = np.where(reach_id_values == selected_reach_id) # find the index of the reach i'm looking for (the array contains the index)
 
-print(selected_reach_index_array[0][0])
+
 """
 [71120000013 71120000043 71120000053 ... 73120001026 73120001036
  73120001046]
  """
+
+
+# Offline group
+offline_group = data_l4.groups["offline"]
+
+"""<class 'netCDF4.Group'>
+group /offline:
+    dimensions(sizes): 
+    variables(dimensions): float64 d_x_area(num_reaches), float64 d_x_area_u(num_reaches), float64 metro_q_c(num_reaches), float64 bam_q_c(num_reaches), float64 hivdi_q_c(num_reaches), float64 momma_q_c(num_reaches), float64 sads_q_c(num_reaches), float64 sic4dvar_q_c(num_reaches), float64 consensus_q_c(num_reaches), float64 metro_q_uc(num_reaches), float64 bam_q_uc(num_reaches), float64 hivdi_q_uc(num_reaches), float64 momma_q_uc(num_reaches), float64 sads_q_uc(num_reaches), float64 sic4dvar_q_uc(num_reaches), float64 consensus_q_uc(num_reaches)
+    groups: """
+
+#  group
+lakeflow_group = data_l4.groups["lakeflow"]
+print(lakeflow_group)
+"""<class 'netCDF4.Group'>
+group /offline:
+    dimensions(sizes): 
+    variables(dimensions): float64 d_x_area(num_reaches), float64 d_x_area_u(num_reaches), float64 metro_q_c(num_reaches), float64 bam_q_c(num_reaches), float64 hivdi_q_c(num_reaches), float64 momma_q_c(num_reaches), float64 sads_q_c(num_reaches), float64 sic4dvar_q_c(num_reaches), float64 consensus_q_c(num_reaches), float64 metro_q_uc(num_reaches), float64 bam_q_uc(num_reaches), float64 hivdi_q_uc(num_reaches), float64 momma_q_uc(num_reaches), float64 sads_q_uc(num_reaches), float64 sic4dvar_q_uc(num_reaches), float64 consensus_q_uc(num_reaches)
+    groups: """
