@@ -51,27 +51,54 @@ single_file_name = dir_l4 + continent + file_suffix
 data_l4 = nc.Dataset(single_file_name)
 
 ## Section 2 : Reading data
-# 2.1 Extracting the GRDC stations id of the continent
+# 2.1 Extracting the GRDC data for the continent
 dir_grdc_prefix = "/obs/ecastonguay/grdc_data/"
 file_nc = continent + ".nc"
 path_nc = os.path.join(dir_grdc_prefix,continent,file_nc)
 file_json = "stationbasins_" + continent + ".geojson"
 path_json = os.path.join(dir_grdc_prefix,continent,file_json)
 # open the netcdf grdc file
-data_grdc = xr.open_dataset(path_nc, engine="netcdf4")
-# get a list of the stations_id
-list_station_id = data_grdc["id"].values # [tested]
+data_grdc = xr.open_dataset(path_nc, engine="netcdf4") # <xarray.Dataset>
 
-# 2.2 Loop for reading all the GRDC stations of the continent
+# 2.2 Put all GRDC runoff data in a DataArray (https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html) 
+# the same will be done for SWOT data in section 4
+runoff_mean_array = data_grdc.runoff_mean   # <xarray.DataArray 'runoff_mean' (time: 766)> 
+                                            # missing value -999.000    
+# filter for the period during which SWOT has data (2023-03-29 to 2025-05-02)     
+runoff_mean_array_2023_2025 = runoff_mean_array.sel(time=slice('2023-03-29','2025-05-02'))  
+"""<xarray.DataArray 'runoff_mean' (time: 766, id: 2042)> Size: 6MB
+[1564172 values with dtype=float32]
+Coordinates:
+  * time     (time) datetime64[ns] 6kB 2023-03-29 2023-03-30 ... 2025-05-02
+  * id       (id) int64 16kB 6111100 6113050 6113110 ... 6935021 6935305 6955430
+Attributes:
+    units:      m3/s
+    long_name:  Mean daily discharge (Q)
+    """  
+# *** filter to make sure no station has empty data? (should not happen, but if a bug occurs, add the checkup HERE)      
+
+# 2.3 Get a list of the stations_id of GRDC
+list_station_id = runoff_mean_array_2023_2025["id"].values # [tested]  
+
+# 2.4 Initialize an empty list of reach indexes (this has to be in the continent loop; the continent reach data will be put in a DataArray which will then be appended to a global dataarray)
+reach_index_continent = np.array([])
+
+# 2.4 Loop for reading all the GRDC stations of the continent and associating them with a reach
 for station_id in list_station_id:
-    station_data = data_grdc.sel(id=station_id) # DataArray sliced by station id. [tested]
-    # filtering GRDC data for the period during which SWOT has data (2023-03-29 to 2025-05-02)                     
-    station_data_2023_2025 = station_data.sel(time=slice('2023-03-29','2025-05-02'))
+    station_data = runoff_mean_array_2023_2025.sel(id=station_id) # DataArray sliced by station id. [tested]
+    """<xarray.DataArray 'runoff_mean' (time: 766)> Size: 3kB
+    [766 values with dtype=float32]
+    Coordinates:
+    * time     (time) datetime64[ns] 6kB 2023-03-29 2023-03-30 ... 2025-05-02
+        id       int64 8B 6111100
+    Attributes:
+        units:      m3/s
+        long_name:  Mean daily discharge (Q)"""
 
     # Section 3 : Finding a match between the GRDC gauge and the SWOT data at reach level
     # get grdc (lat,lon) coordinates of gauge
-    x_found_station = station_data_2023_2025["geo_x"].values # x (lat) at the found station
-    y_found_station = station_data_2023_2025["geo_y"].values
+    x_found_station = station_data["geo_x"].values # x (lat) at the found station
+    y_found_station = station_data["geo_y"].values
     # find the corresponding reach in the continent-level swot data (looking for the reach with the closest coordinates to the station) (consensus_q only available at reach-level)
     reach_group = data_l4.groups['reaches']
     x_coordinates_values = reach_group['x'][:] # all x coordinates in swot/l4 data for the na continent
@@ -100,6 +127,9 @@ for station_id in list_station_id:
             print(f"Warning: [4.1] The nearest reach associated with the station {station_id} is quite far from it's location. This might have an impact on the quality of the comparison.")
         # closest reach's id
         closest_reach_id = data_l4.groups['reaches']['reach_id'][index]
+        # add reach index to the list
+
+        ### HERE: fin de la boucle pour récupérer les reach index
         # 4.2 SWOT - Time data
         time_swot = data_l4.groups["consensus"]['time_int'][index]
         time_swot_filtered = time_swot[mask_fill_values] # again masking the missing values
@@ -108,13 +138,13 @@ for station_id in list_station_id:
         # converting time from int to datetime
         epoch = np.datetime64('2000-01-01')
         datetime_swot = epoch + time_swot_filtered.astype('timedelta64[s]')
-        # 4.3 SWOT - 
-        # 4.3 GRDC - Runoff data
-        runoff_grdc = station_data_2023_2025["runoff_mean"]  # metadata: print(runoff)
-                                                # values: print(runoff.values)
+        # 4.3 SWOT - other metadata
+
+        ## 4.4 Add the SWOT data in it's DataArray (https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html)
+        
         ### *** HERE: use NaN values to fill everywhere swot doesnt contain data compared to grdc (with pandas??)
-  
-        ## Section 5 : Data visualization
+        
+        ## Section 6 : Data visualization
         # 5.1 Plot comparison of in-situ with grdc 
         if plot_discharge_comparison == 1:
             if station_id in list_stations_plot:
@@ -129,11 +159,11 @@ for station_id in list_station_id:
                     consensus_q_comparison = consensus_q_swot_filtered[index_target_datetime_period]     
                     datetime_comparison = datetime_swot[index_target_datetime_period]
                     # 5.4 Slicing GRDC data for the right time period
-                    runoff_grdc_comparison = runoff_grdc.sel(time=slice(target_date_inf,target_date_sup)) # slicing the entire data to keep values between X and Y dates
+                    runoff_grdc_comparison = station_data.sel(time=slice(target_date_inf,target_date_sup)) # slicing the entire data to keep values between X and Y dates
                 else: 
                     datetime_comparison = datetime_swot
                     consensus_q_comparison = consensus_q_swot_filtered
-                    runoff_grdc_comparison = runoff_grdc
+                    runoff_grdc_comparison = station_data
 
                 # printing some information related to the nearest reach found
                 #print(f"Distance of the closest and data-containing reach to station {station_id} is {distance}")
@@ -159,9 +189,13 @@ for station_id in list_station_id:
                 plt.show()  
         break # while ii < k_neighbors:
 
+## Section X : Put the SWOT data in a DataArray
+
+## Section XX : Append 
+
 # 4.2 Plot all discharge data for a specific reach, without in situ data comparison
 if plot_reach_discharge == 1:
-    reach_id_values = data_l4.groups['reaches']['reach_id'][:]
+    reach_id_values = data_l4.groups['reaches']['reach_id'][:] # *** CHANGE the code to incorporate the fact that the reaches in the list might be from different continents.
     selected_reach_index_array = np.where(reach_id_values == selected_reach_id) # find the index of the reach i'm looking for (the array contains the index)
                                                                                 # array within array; [0][0]
     if (len(selected_reach_index_array[0]) == 0):
@@ -211,3 +245,5 @@ if plot_reach_discharge == 1:
         plt.show()  
 
     
+### HERE : End of the continent loop
+### HERE : then concathenate continents dataarrays
