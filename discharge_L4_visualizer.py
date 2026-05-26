@@ -161,6 +161,7 @@ if plot_reach_discharge == 1:
         selected_reach_index = selected_reach_index_array[0][0] # [tested]
         consensus_q_variable = data_l4.groups["consensus"]['consensus_q'] # <class 'netCDF4.Variable'>
         discharge_selected_reach = consensus_q_variable[selected_reach_index]
+        print(discharge_selected_reach.shape)
         # print reach's coordinates
         print(f"The coordinates of the reach are ({data_l4.groups['reaches']['y'][selected_reach_index]},{data_l4.groups['reaches']['x'][selected_reach_index]})")
         # masking the missing discharge values
