@@ -17,9 +17,9 @@ import netCDF4 as nc
 from scipy.spatial import KDTree
 
 ## Section 0 : Make sure the following variables are set correctly before running the code
-continent = "eu" # SELECT a continent (africa: af, asia: as, europe: eu, north_america: na, south_america: sa, oceania: oc)
-target_date_inf = "2023-08-18" # SELECT a time period for the graphs
-target_date_sup = "2024-09-21" # SWOT data : 2023-03-29 to 2025-05-02
+continent = "sa" # SELECT a continent (africa: af, asia: as, europe: eu, north_america: na, south_america: sa, oceania: oc)
+target_date_inf = "2023-04-01" # SELECT a time period for the graphs
+target_date_sup = "2025-04-01" # SWOT data : 2023-03-29 to 2025-05-02
 use_target_date_filter = True # SELECT True if we want to use the above specified target dates, False if the goal is to display the discharge data for all time period available
 # 0.1 Plot regarding discharge comparison
 list_of_station_id = [3626000]  # SELECT stations in GRDC database to compare with SWOT data. Enter their stations id in int format.
@@ -30,7 +30,7 @@ list_of_station_id = [3626000]  # SELECT stations in GRDC database to compare wi
                                 # 6139415 : article 3, fig 2c - Le Drac River near Grenoble, France
                                 # sa
                                 # 3626000 : amazonie, cours d'eau large de 3 km
-plot_discharge_comparison = 0 # SELECT 1 to plot, 0 to ignore
+plot_discharge_comparison = 1 # SELECT 1 to plot, 0 to ignore
 # 0.2 Plot regarding all discharge data for a specific reach
 selected_reach_id = 23229000561 # SELECT a reach to plot. 
                                 # 74210000201 article 3, fig 2a - reach on mississippi near bâton rouge (na)
@@ -38,7 +38,7 @@ selected_reach_id = 23229000561 # SELECT a reach to plot.
                                 # 81130400021 article 3, fig 2b - the reach they actually used (na)
                                 # 21602400201 article 3, fig 2c - the reach they actually used (eu)
                                 # 23229000561 article 3, fig 2d - the reach they actually used (eu)
-plot_reach_discharge = 1 # SELECT 1 to plot, 0 to ignore
+plot_reach_discharge = 0 # SELECT 1 to plot, 0 to ignore
 
 ## Section 1 : Extracting the dataset from the SWOT continent file
 # This code loads the single selected continent file
