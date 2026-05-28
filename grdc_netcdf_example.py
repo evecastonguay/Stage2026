@@ -15,11 +15,62 @@ import netCDF4 as nc
 import numpy as np
 
 ##### ----------------------------------------------------- Section GRDC example
-#data_l4 = nc.Dataset(single_file_name)
-# Open netCDF file
-#dir_grdc = "/obs/ecastonguay/grdc_data/na/GRDC-Daily.nc"
-#data = xr.open_dataset(dir_grdc, engine="netcdf4")
+continent = "oc"
+dir_grdc_prefix = "/obs/ecastonguay/grdc_data/"
+file_nc = continent + ".nc"
+path_nc = os.path.join(dir_grdc_prefix,continent,file_nc)
+file_json = "stationbasins_" + continent + ".geojson"
+path_json = os.path.join(dir_grdc_prefix,continent,file_json)
+# open the netcdf grdc file
+data_grdc = xr.open_dataset(path_nc, engine="netcdf4") # <xarray.Dataset>
+time_sliced = data_grdc.sel(time=slice('2023-03-29','2025-05-02'))  
+print(time_sliced['runoff_mean'])
+print(time_sliced['area'])
+
+ghj
+
 """
+DISPLAY: time_sliced = data_grdc.sel(time=slice('2023-03-29','2025-05-02'))
+<xarray.Dataset> Size: 1MB
+Dimensions:              (time: 766, id: 401)
+Coordinates:
+  * time                 (time) datetime64[ns] 6kB 2023-03-29 ... 2025-05-02
+  * id                   (id) int64 3kB 3102010 3102450 ... 3947700 3948600
+Data variables:
+    runoff_mean          (time, id) float32 1MB ...
+    area                 (id) float32 2kB ...
+    country              (id) <U2 3kB ...
+    geo_x                (id) float32 2kB ...
+    geo_y                (id) float32 2kB ...
+    geo_z                (id) float32 2kB ...
+    owneroforiginaldata  (id) <U85 136kB ...
+    river_name           (id) <U30 48kB ...
+    station_name         (id) <U32 51kB ...
+    timezone             (id) float32 2kB ...
+Attributes:
+    title:          Mean daily discharge (Q)
+    Conventions:    CF-1.7
+    references:     grdc.bafg.de
+    institution:    GRDC
+    history:        Download from GRDC Database, 21/05/2026
+    missing_value:  -999.000
+    """
+
+"""
+DISPLAY time_sliced = data_grdc.sel(time=slice('2023-03-29','2025-05-02')):
+<xarray.DataArray 'time' (time: 766)> Size: 6kB
+array(['2023-03-29T00:00:00.000000000', '2023-03-30T00:00:00.000000000',
+       '2023-03-31T00:00:00.000000000', ..., '2025-04-30T00:00:00.000000000',
+       '2025-05-01T00:00:00.000000000', '2025-05-02T00:00:00.000000000'],
+      shape=(766,), dtype='datetime64[ns]')
+Coordinates:
+  * time     (time) datetime64[ns] 6kB 2023-03-29 2023-03-30 ... 2025-05-02
+Attributes:
+    long_name:  time"""
+
+
+"""
+GRDC DATASET
 <xarray.Dataset> Size: 408kB
 Dimensions:              (time: 33968, id: 1)
 Coordinates:
@@ -149,6 +200,7 @@ group /consensus:
 consensus_q = consensus_group['consensus_q'] 
 
 """
+CONSENSUS Q VARIABLE
 <class 'netCDF4.Variable'>
 vlen consensus_q(num_reaches)
     long_name: consensus_discharge
@@ -178,14 +230,22 @@ consensus_q_values = consensus_q[:] # <class 'numpy.ndarray'>, this is a 1-d arr
 # 2.2 Reading reach group
 reach_group = data_l4.groups['reaches']
 """
+REACHES GROUP
 <class 'netCDF4.Group'>
 group /reaches:
     dimensions(sizes): 
     variables(dimensions): int64 reach_id(num_reaches), float64 x(num_reaches), float64 y(num_reaches), <class 'str'> river_name(num_reaches), <class 'str'> observations(num_reaches), float64 time(num_reaches)
     groups: 
 """
-reach_id = reach_group['reach_id'] 
-"""<class 'netCDF4.Variable'>
+reach_id = reach_group['reach_id'] # NOTE: quand on sélectionne des indices, le fait de mettre [:] ne change rien
+                                    # reach_id = reach_group['reach_id'][0] OU reach_id = reach_group['reach_id'][:][0]
+#print(data_l4.groups["consensus"]['time_int'][:])                    
+reaches_indexes_continent = np.array([0,1,2])
+#print(data_l4.groups["consensus"]['time_int'][reaches_indexes_continent])
+
+"""
+REACH ID VARIABLE
+<class 'netCDF4.Variable'>
 int64 reach_id(num_reaches)
     format: CBBBBBRRRRT
     comment: Taken from SWORD PDD: id of each reach. The format of none the id is as follows: CBBBBBRRRRT where C = Continent (the first number of the Pfafstetter basin code), B = Remaining Pfafstetter basin codes up to level 6, R = Reach id (assigned sequentially within a level 6 basin starting at the downstream end working upstream, T = Type (1 – river, 3 – lake on river, 4 – dam or waterfall, 5 – unreliable topology, 6 – ghost reach)
@@ -212,17 +272,55 @@ selected_reach_index_array = np.where(reach_id_values == selected_reach_id) # fi
 # Offline group
 offline_group = data_l4.groups["offline"]
 
-"""<class 'netCDF4.Group'>
+"""
+OFFLINE GROUP
+<class 'netCDF4.Group'>
 group /offline:
     dimensions(sizes): 
     variables(dimensions): float64 d_x_area(num_reaches), float64 d_x_area_u(num_reaches), float64 metro_q_c(num_reaches), float64 bam_q_c(num_reaches), float64 hivdi_q_c(num_reaches), float64 momma_q_c(num_reaches), float64 sads_q_c(num_reaches), float64 sic4dvar_q_c(num_reaches), float64 consensus_q_c(num_reaches), float64 metro_q_uc(num_reaches), float64 bam_q_uc(num_reaches), float64 hivdi_q_uc(num_reaches), float64 momma_q_uc(num_reaches), float64 sads_q_uc(num_reaches), float64 sic4dvar_q_uc(num_reaches), float64 consensus_q_uc(num_reaches)
     groups: """
 
-#  group
-lakeflow_group = data_l4.groups["lakeflow"]
-print(lakeflow_group)
-"""<class 'netCDF4.Group'>
-group /offline:
-    dimensions(sizes): 
-    variables(dimensions): float64 d_x_area(num_reaches), float64 d_x_area_u(num_reaches), float64 metro_q_c(num_reaches), float64 bam_q_c(num_reaches), float64 hivdi_q_c(num_reaches), float64 momma_q_c(num_reaches), float64 sads_q_c(num_reaches), float64 sic4dvar_q_c(num_reaches), float64 consensus_q_c(num_reaches), float64 metro_q_uc(num_reaches), float64 bam_q_uc(num_reaches), float64 hivdi_q_uc(num_reaches), float64 momma_q_uc(num_reaches), float64 sads_q_uc(num_reaches), float64 sic4dvar_q_uc(num_reaches), float64 consensus_q_uc(num_reaches)
-    groups: """
+print(data_l4.groups['offline']['d_x_area'][2847])
+"""
+GROUP LAKEFLOW
+<class 'netCDF4.Group'>
+group /lakeflow:
+    dimensions(sizes): lakeflow_dates(689)
+    variables(dimensions): int64 lake_id(num_reaches), int32 prior_fit(num_reaches), int32 type(num_reaches), float64 q_upper(num_reaches), float64 q_lower(num_reaches), float64 n_lakeflow_sd(num_reaches), float64 a0_lakeflow(num_reaches), int64 lakeflow_date(lakeflow_dates), float64 width(num_reaches, lakeflow_dates), float64 slope2(num_reaches, lakeflow_dates), float64 da(num_reaches, lakeflow_dates), float64 wse(num_reaches, lakeflow_dates), float64 storage(num_reaches, lakeflow_dates), float64 dv(num_reaches, lakeflow_dates), float64 q_model(num_reaches, lakeflow_dates), float64 tributary(num_reaches, lakeflow_dates), float64 et(num_reaches, lakeflow_dates), float64 bayes_q(num_reaches, lakeflow_dates), float64 bayes_q_sd(num_reaches, lakeflow_dates), float64 q_lakeflow(num_reaches, lakeflow_dates), float64 n_lakeflow(num_reaches, lakeflow_dates)
+    groups: 
+    """
+
+"""
+OFFLINE VARIABLE
+<class 'netCDF4.Variable'>
+vlen d_x_area(num_reaches)
+    missing_value: -999999999999.0
+    long_name: change in cross-sectional area
+    valid_max: 10000000
+    coverage_content_type: modelResult
+    comment: change in cross-sectional area
+    units: m^2
+    valid_min: -10000000
+vlen data type: float64
+path = /offline
+unlimited dimensions: 
+current shape = (38048,)
+"""
+
+"""
+TIME VARIABLE
+print(data_l4.groups["consensus"]['time_int'])
+<class 'netCDF4.Variable'>
+vlen time_int(num_reaches)
+    long_name: integer time for consensus Q - seconds since beginning of January 1, 2000
+    calendar: gregorian
+    short_name: time_int
+    standard_name: time (seconds)
+    tag_basic_expert: Basic
+    missing_value: -999999999999
+    comment: seconds since beginning of January 1, 2000
+    fill: -999999999999
+vlen data type: int64
+path = /consensus
+unlimited dimensions: 
+current shape = (38048,)"""
