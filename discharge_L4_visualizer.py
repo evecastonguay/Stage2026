@@ -128,6 +128,7 @@ if plot_discharge_comparison == 1:
                     # 4.1 Plot comparison of in-situ with grdc 
                     plt.figure(figsize=(12, 6))
                     plt.plot(datetime_comparison,consensus_q_comparison, marker='o', markersize=5, label='SWOT discharge', color='darkorange', markeredgecolor='white', markeredgewidth=0.4)
+                    print(consensus_q_comparison)
                     plt.plot(runoff_grdc_comparison.time.values, runoff_grdc_comparison.values, marker='o', markersize=5, label='In situ', color='tab:blue', alpha=1, markeredgecolor='white', markeredgewidth=0.4)
 
                     plt.title(f"In situ runoff measurements of station {station_id} and the SWOT L4 consensus discharge \nof it's nearest corresponding reach {closest_reach_id}") # SELECT title
@@ -138,7 +139,7 @@ if plot_discharge_comparison == 1:
                     plt.grid(True)
 
                     if use_target_date_filter:
-                        fig_name = f'discharge_comparison_station{station_id}_r{closest_reach_id}_{target_date_inf}_{target_date_sup}.png' # SELECT file name
+                        fig_name = f'TEST L4 VIZ discharge_comparison_station{station_id}_r{closest_reach_id}_{target_date_inf}_{target_date_sup}.png' # SELECT file name
                     else:
                         fig_name = f'discharge_comparison_station{station_id}_r{closest_reach_id}.png' # SELECT file name
                     plt.savefig(f'/obs/ecastonguay/scripts/figures/{fig_name}', dpi=400, bbox_inches='tight')
