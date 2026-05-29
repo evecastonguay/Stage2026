@@ -14,6 +14,21 @@ import xml.etree.ElementTree as ET
 import netCDF4 as nc
 import numpy as np
 
+"""<xarray.Dataset> Size: 48MB
+Dimensions:          (time: 766, id: 5241)
+Coordinates:
+  * time             (time) datetime64[us] 6kB 2023-03-29 ... 2025-05-02
+  * id               (id) int64 42kB 1159100 1159103 1159110 ... 5870600 5870655
+Data variables:
+    runoff_global_g  (id, time) float32 16MB 433.0 424.6 414.8 ... 59.33 49.56
+    geox_global_g    (id) float32 21kB 17.72 19.15 20.36 ... 171.9 171.7 172.4
+    geoy_global_g    (id) float32 21kB -28.76 -28.96 -31.81 ... -41.83 -41.76
+    area_global_g    (id) float32 21kB 8.665e+05 8.599e+05 ... 6.35e+03 1.41e+03
+    dschg_global_s   (id, time) float64 32MB nan nan nan nan ... nan nan nan nan
+    geox_global_s    (id) float64 42kB 17.76 19.14 19.48 ... 171.7 171.6 172.9
+    geoy_global_s    (id) float64 42kB -28.75 -28.96 -32.13 ... -42.29 -41.83
+    id_global_s      (id) int64 42kB 12730300031 12730700131 ... 57205200091"""
+
 ##### ----------------------------------------------------- Section GRDC example
 continent = "oc"
 dir_grdc_prefix = "/obs/ecastonguay/grdc_data/"
