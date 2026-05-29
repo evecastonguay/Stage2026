@@ -275,25 +275,18 @@ geoy_global_s = xr.concat(list(geoy_darrays_s.values()), dim='id')
 id_global_s = xr.concat(list(id_darrays_s.values()), dim='id')
 
 ## Section 11 : Form the complete DataSet of all relevant SWOT and GRDC data
-dset_global = xr.Dataset(
-    data_vars=dict(
-        # grdc
-        discharge_grdc =(["id", "time"], runoff_global_g),
-        x_grdc =(["id"], geox_global_g),
-        y_grdc =(["id"], geoy_global_g),
-        area_grdc =(["id"], area_global_g),
-        # swot
-        discharge_swot = (["id", "time"], dschg_global_s),
-        x_swot = (["id"], geox_global_s),
-        y_swot = (["id"], geoy_global_s),
-        r_id_swot = (["id"], id_global_s)
-    ),
-    coords=dict(
-            id=list_station_id,
-            time=time_dim,
-        ),
-    attrs=dict(description="DataSet for multiple SWOT and GRDC variables (mainly discharge) across all stations available in the GRD database. The data is available between (2023-03-29,2025-05-02), which is the period covered by the SWOT data.")
-)
+dset_global = runoff_global_g.to_dataset(name='runoff_global_g')
+dset_global['geox_global_g'] = geox_global_g
+dset_global['geoy_global_g'] = geoy_global_g
+dset_global['area_global_g'] = area_global_g
+dset_global['dschg_global_s'] = dschg_global_s
+dset_global['geox_global_s'] = geox_global_s
+dset_global['geoy_global_s'] = geoy_global_s
+dset_global['id_global_s'] = id_global_s
+
+print(dset_global)
+
+
 
 
 
