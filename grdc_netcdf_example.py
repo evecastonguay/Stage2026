@@ -1,5 +1,5 @@
-## Example script for opening discharge data from the GRDC data in netCDF format
-## Also contains example of how to work with the SWOT data organized in groups
+## Example script for opening various files in different formats
+
  
 # Imports
 from datetime import datetime
@@ -14,7 +14,51 @@ import xml.etree.ElementTree as ET
 import netCDF4 as nc
 import numpy as np
 
-"""<xarray.Dataset> Size: 48MB
+#### SWORD example
+## Section x : Extracting SWORD data
+# x.1 reading the file
+continent_list = ['af', 'as', 'eu', 'na', 'sa', 'oc']
+dir_swr = "/obs/ecastonguay/sword_data/netcdf_v17b" # sword
+file_swr = 'na' + "_sword_v17b.nc"
+path_swr = os.path.join(dir_swr,file_swr)
+# open the netcdf file
+data_swr = nc.Dataset(path_swr)
+
+# x.2 Finding the right reach_id
+r_list_swr = data_swr["reaches"]["reach_id"][:]
+selected_reach_id = 81130400011
+r_index_swr = np.where(r_list_swr==selected_reach_id) # [NOT found] ????? -> considérer cette option dans mon code. faire une variable qui compte le nb de reaches perdus
+# if not found, fill array with NaN (and +1 on the boucle)
+
+# x.3 Making sure the reach_id list is same shape as width (they always should be)
+w_list_swr = data_swr["reaches"]["width"][:]
+if (len(r_list_swr) != len(w_list_swr)):
+    print("Error: [] Number of width values and reach_id values used to retreive the width is not identical.")
+
+# x.4 Retreiving the width associated with it 
+data_swr["reaches"]["width"][r_index_swr] # selecting group with a "." doesn't work here
+
+# x.5 Putting width in a DataArray
+
+
+selected_reach_id = 81130400021 # 74210000201 article 3, fig 2a - reach on mississippi near bâton rouge (na) [found by algo]
+                                # 74230900011 reach of the good graph [found by algo]
+
+                                # 81130400011 article 3, fig 2b - the reach my code found (na) [NOT found] ????? -> considérer cette option dans mon code. faire une variable qui compte le nb de reaches perdus
+                                # 81130400021 article 3, fig 2b - the reach they actually used (na) [found by algo]
+
+
+
+
+#print(data_swr["reaches"]["width"][index])
+# sortie de mes données: déc 2025, jan 2026 -> v17b
+
+
+
+
+"""
+#### MY DATASET example
+<xarray.Dataset> Size: 48MB
 Dimensions:          (time: 766, id: 5241)
 Coordinates:
   * time             (time) datetime64[us] 6kB 2023-03-29 ... 2025-05-02
@@ -29,8 +73,8 @@ Data variables:
     geoy_global_s    (id) float64 42kB -28.75 -28.96 -32.13 ... -42.29 -41.83
     id_global_s      (id) int64 42kB 12730300031 12730700131 ... 57205200091"""
 
-##### ----------------------------------------------------- Section GRDC example
-continent = "oc"
+##### Section GRDC example (finir, 3 juin!)
+"""continent = "eu"
 dir_grdc_prefix = "/obs/ecastonguay/grdc_data/"
 file_nc = continent + ".nc"
 path_nc = os.path.join(dir_grdc_prefix,continent,file_nc)
@@ -39,10 +83,8 @@ path_json = os.path.join(dir_grdc_prefix,continent,file_json)
 # open the netcdf grdc file
 data_grdc = xr.open_dataset(path_nc, engine="netcdf4") # <xarray.Dataset>
 time_sliced = data_grdc.sel(time=slice('2023-03-29','2025-05-02'))  
-print(time_sliced['runoff_mean'])
-print(time_sliced['area'])
-
-ghj
+portugal = time_sliced.sel(id=6115500)
+print(portugal)"""
 
 """
 DISPLAY: time_sliced = data_grdc.sel(time=slice('2023-03-29','2025-05-02'))
@@ -142,6 +184,7 @@ Attributes:
 ##### ---------------------------------------------- Section SWOT example
 single_file_name = "/obs/ecastonguay/swot_data/L4_discharge/na_sword_v16_SOS_results_unconstrained_20230502T204408_20250502T204408_20251219T163700.nc"  
 data_l4 = nc.Dataset(single_file_name)
+
 """
 Display results (data is stored within the groups):
 <class 'netCDF4.Dataset'>
@@ -274,9 +317,12 @@ current shape = (38048,)
 filling on, default _FillValue of -9223372036854775806 used
 """
 reach_id_values = reach_id[:] # len: 38048
-selected_reach_id = 71120000013
+"""selected_reach_id = 81130400011
 selected_reach_index_array = np.where(reach_id_values == selected_reach_id) # find the index of the reach i'm looking for (the array contains the index)
+liste=np.array([25713,25714,25715])
+print(reach_id_values[liste])
 
+print("voici le reach perdu",selected_reach_index_array)"""
 
 """
 [71120000013 71120000043 71120000053 ... 73120001026 73120001036
@@ -295,7 +341,6 @@ group /offline:
     variables(dimensions): float64 d_x_area(num_reaches), float64 d_x_area_u(num_reaches), float64 metro_q_c(num_reaches), float64 bam_q_c(num_reaches), float64 hivdi_q_c(num_reaches), float64 momma_q_c(num_reaches), float64 sads_q_c(num_reaches), float64 sic4dvar_q_c(num_reaches), float64 consensus_q_c(num_reaches), float64 metro_q_uc(num_reaches), float64 bam_q_uc(num_reaches), float64 hivdi_q_uc(num_reaches), float64 momma_q_uc(num_reaches), float64 sads_q_uc(num_reaches), float64 sic4dvar_q_uc(num_reaches), float64 consensus_q_uc(num_reaches)
     groups: """
 
-print(data_l4.groups['offline']['d_x_area'][2847])
 """
 GROUP LAKEFLOW
 <class 'netCDF4.Group'>
