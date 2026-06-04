@@ -14,59 +14,126 @@ import numpy as np
 from scipy.spatial import KDTree
 from zipfile import ZipFile
 import netCDF4 as nc
+from datetime import date, timedelta
 
 ## Tests
-# 1) pandas series
-serie1 = pd.Series([7.498016e+08])
-#
-# 2) 
+
+# soustraction avec nans
+"""a = np.array([[ 0.,  np.nan,  10],
+       [ 3.,  3.,  3.],
+       [ 6.,  6.,  6.]])
+print(a[0])
+b = np.array([[ 0.,  0.,  0.],
+       [ 3.,  3.,  3.],
+       [ 6.,  12,  np.nan]])
+
+aaa = np.array([ 0.,  np.inf,  30])
+clip_sum = np.clip(aaa,0,20)"""
+
+# GOAL : concathenate 2 dataarrays
+np.random.seed(0)
+t1 = [[22, 22], [32, 4]]# 15 + 8 * np.random.randn(2, 2)
+t2 = [[10, np.nan], [3, 8]]# 15 + 8 * np.random.randn(2, 2)
+lon1 = [[-99.83, -99.32], [-99.79, -99.23]]
+lon2 = [[-98.83, -98.32], [-98.79, -97.23]]
+null = np.full((2, 2), np.nan, dtype=np.float64) # dim (id, time)
+lat = [[42.25, 42.21], [42.63, 42.59]]
+reference_time = pd.Timestamp("2014-09-05")
+
+da1 = xr.DataArray(
+    data=t1,
+    dims=["x", "y"],
+    coords=dict(
+        lon=(["x", "y"], lon1),
+        lat=(["x", "y"], lat),
+        reference_time=reference_time,
+    ),
+    attrs=dict(
+        description="Ambient temperature.",
+        units="degC",
+    ),
+)
+
+da2 = xr.DataArray(
+    data=t2,
+    dims=["x", "y"],
+    coords=dict(
+        lon=(["x", "y"], lon2),
+        lat=(["x", "y"], lat),
+        reference_time=reference_time,
+    ),
+    attrs=dict(
+        description="Ambient temperature.",
+        units="degC",
+    ),
+)
+
+eps = 11 # to filter out the smaller discharges that would result in a value of inf (/0)
+mask = (da1 >= eps) & (da2>=eps)
+q_ol_g_masked = da1.where(mask)
+q_ol_s_masked = da2.where(mask) #np.where(mask, da2, np.nan)
+print(q_ol_g_masked)
+
+daily_err = (q_ol_s_masked - q_ol_g_masked) / q_ol_g_masked # Nans will be ignored in the computations. *** remove inf (if==0, mettre que daily vaut 0) + si sont tous 0
+print(daily_err)
+mean_err = daily_err.mean()
+print(mean_err)
+
+
+ghj
+
+
+
+"""# two vertical arrays
+a = np.array([[1], 
+              [2], 
+              [3]])
+b = np.array([[4], [5], [6]])
+# two horizontal arrays
+c = np.array([1, 2, 3])
+d = np.array([4, 5, 6])"""
+
+"""# GRDC. goal: check if datetime organized by days, and if there is NaN where there is no data (hopefully)
+continent = "na"
+dir_grdc_prefix = "/obs/ecastonguay/grdc_data/"
+file_nc = continent + ".nc"
+path_nc = os.path.join(dir_grdc_prefix,continent,file_nc)
+file_json = "stationbasins_" + continent + ".geojson"
+path_json = os.path.join(dir_grdc_prefix,continent,file_json)
+# open the netcdf grdc file
+data_grdc = xr.open_dataset(path_nc, engine="netcdf4") # <xarray.Dataset>
+time_sliced = data_grdc.sel(time=slice('2023-03-29','2025-05-02'))  
+# pick given id
+id_rand = 4127800
+id_sliced = time_sliced['runoff_mean'].sel(id=id_rand)
+print(id_sliced.values)"""
+
+
+"""# SWOT retrieval
 dir_l4 = "/obs/ecastonguay/swot_data/L4_discharge/"
 file_suffix = "_sword_v16_SOS_results_unconstrained_20230502T204408_20250502T204408_20251219T163700.nc"
 continent = "na"
 single_file_name = dir_l4 + continent + file_suffix # *** change to i_continent everywhere!
 data_l4 = nc.Dataset(single_file_name)
-list = [0,1,2,3,4]
-discharge_darray = data_l4.groups["consensus"]['consensus_q'][list] # (5,). this is <class 'numpy.ndarray'> containing other <class 'numpy.ndarray'>
-time_darray = data_l4.groups["consensus"]['time_int'][list] # (5,)
-print(type(discharge_darray[4][0]))
-#print(time_darray)
+discharge_darray = data_l4.groups["consensus"]['consensus_q'][4] # (5,). this is <class 'numpy.ndarray'> containing other <class 'numpy.ndarray'>
+time_darray = data_l4.groups["consensus"]['time_int'][4] # (5,)
 
+mask_fill_values = (discharge_darray != data_l4.groups["consensus"]['consensus_q'].missing_value)
 
-### Goal: have a (n_station,time) ndarray
-# make the time dimension
-from datetime import date, timedelta
-sdate = date(2023,3,29)   # start date
-edate = date(2025,5,2)   # end date
-time_dimension = [sdate+timedelta(days=x) for x in range((edate-sdate).days+1)] # making sure the end date is included. list of datetime.date
-# OR
-time2_dimension = pd.date_range(start='2023-03-29', end='2025-05-02', freq='D') # ndarray-like of datetime64 data. dtype='datetime64[us]
-# make the station dimension
-# *** make sure discharge and time have same size
-station_dimension = np.arange(0,discharge_darray.shape[0]) # 5 stations
+consensus_q_flt = discharge_darray[mask_fill_values] 
+#print(consensus_q_flt)
 
-# make empty DataArray
-Y = len(time2_dimension) #766
-X = len(discharge_darray) #5
-print(X)
+time_flt = time_darray[mask_fill_values]
+epoch = np.datetime64('2000-01-01')
+datetime_flt = epoch + time_flt.astype('timedelta64[s]') # <class 'numpy.ndarray'> containing datetime64 
 
-discharge_data = np.full((X, Y), np.nan, dtype=np.float64)
-
-
-# 1) mask NaN
-missing_val = data_l4.groups["consensus"]['consensus_q'].missing_value # [tested]
-mask_fill_values = (discharge_darray != missing_val) # [tested]
-discharge_filtered = discharge_darray[mask_fill_values] 
-
-print(discharge_filtered)
-
-# 
-print("solution 1")
-goal = np.array(discharge_darray)
-print(goal.shape)
-
-print("solution 2")
-goal2 = np.vstack(discharge_darray)
-
+station_pos = 0
+swot_start = '2023-03-29'
+swot_end = '2025-05-02'
+time_dim = pd.date_range(start=swot_start, end=swot_end, freq='D') # ndarray-like of datetime64 data. dtype='datetime64[us]
+print(time_dim)
+dschg_ndarray = np.full((10, len(time_dim)), np.nan, dtype=np.float64) # dim (id, time)
+"""
 
 """<xarray.Dataset> Size: 65MB
 Dimensions:              (time: 44459, id: 360)
@@ -285,4 +352,37 @@ target = np.array([target_lat,target_lon]) # (2,)
 
 distance, index = KDTree(stacked_xy).query([target_lon, target_lat],k=1)
 print(index)
+"""
+
+
+
+"""## *** statistical tests - Swot's mean of the normalized relative biais per station
+# Compute error at these stations
+daily_err = (q_ol_s-q_ol_g)/q_ol_g*100 # [equation]
+mean_err = daily_err.mean(dim="time")
+
+# Determine the 'view' of the world map
+plt.figure(figsize=(20, 8))
+min_lat = -60
+max_lat = 80
+min_lon = -180
+max_lon = 180
+map = Basemap(
+   projection='merc', llcrnrlat=min_lat, urcrnrlat=max_lat,
+   llcrnrlon=min_lon, urcrnrlon=max_lon, resolution='c')
+
+# Draw the continental elements
+color = mcolors.to_rgba('royalblue', alpha=0.1) # 'royalblue', alpha=0.1 // 'lightsteelblue', alpha=0.35
+map.drawcoastlines(color='k',linewidth=0.5)
+map.drawcountries(color='w',linewidth=0.5)
+map.drawmapboundary(fill_color=color) # ocean color
+map.fillcontinents(color='black', lake_color='black')
+#map.drawparallels(np.linspace(min_lon,max_lon,num=10))
+#map.drawmeridians(np.linspace(min_lat,max_lat,num=10))
+
+# Plot
+x, y = map(x_ol_s, y_ol_s)  # Projecting latitudes and longitudes to map coordinates
+mymap = map.scatter(x, y, c=mean_err, cmap='BrBG', marker='o', alpha=1, s=1) # s is markersize, [vmin=0,vmax=5000]
+plt.colorbar(mymap, label='Label')
+plt.show()
 """
