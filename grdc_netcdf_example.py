@@ -18,39 +18,35 @@ import numpy as np
 ## Section x : Extracting SWORD data
 # x.1 reading the file
 continent_list = ['af', 'as', 'eu', 'na', 'sa', 'oc']
-dir_swr = "/obs/ecastonguay/sword_data/netcdf_v17b" # sword
-file_swr = 'na' + "_sword_v17b.nc"
+dir_swr = "/obs/ecastonguay/sword_data/netcdf_v16" # sword
+file_swr = 'sa' + "_sword_v16.nc" # CONTINENT!
 path_swr = os.path.join(dir_swr,file_swr)
 # open the netcdf file
 data_swr = nc.Dataset(path_swr)
-
 # x.2 Finding the right reach_id
 r_list_swr = data_swr["reaches"]["reach_id"][:]
-selected_reach_id = 81130400011
-r_index_swr = np.where(r_list_swr==selected_reach_id) # [NOT found] ????? -> considérer cette option dans mon code. faire une variable qui compte le nb de reaches perdus
-# if not found, fill array with NaN (and +1 on the boucle)
-
-# x.3 Making sure the reach_id list is same shape as width (they always should be)
-w_list_swr = data_swr["reaches"]["width"][:]
-if (len(r_list_swr) != len(w_list_swr)):
-    print("Error: [] Number of width values and reach_id values used to retreive the width is not identical.")
-
-# x.4 Retreiving the width associated with it 
-data_swr["reaches"]["width"][r_index_swr] # selecting group with a "." doesn't work here
-
-# x.5 Putting width in a DataArray
-
-
-selected_reach_id = 81130400021 # 74210000201 article 3, fig 2a - reach on mississippi near bâton rouge (na) [found by algo]
+selected_reach_id = 62291000181 # 74210000201 article 3, fig 2a - reach on mississippi near bâton rouge (na) [found by algo]
                                 # 74230900011 reach of the good graph [found by algo]
+                                # 62291000181 amazonie (1420.5)
+                                # 62293400041 amazonie (3520.)
+                                # tagus portugal 23160300041
 
                                 # 81130400011 article 3, fig 2b - the reach my code found (na) [NOT found] ????? -> considérer cette option dans mon code. faire une variable qui compte le nb de reaches perdus
                                 # 81130400021 article 3, fig 2b - the reach they actually used (na) [found by algo]
+r_index_swr = np.where(r_list_swr==selected_reach_id) # [NOT found] ????? -> considérer cette option dans mon code. faire une variable qui compte le nb de reaches perdus
+if r_index_swr[0].size != 0: # if the reach_id is found in the sword database
+    print('found')
+else:
+    print('not found')
 
+x = data_swr["reaches"]["x"][r_index_swr]
+y = data_swr["reaches"]["y"][r_index_swr]
+print(f'({y},{x})')
 
+# x.4 Retreiving the width associated with it 
+w = data_swr["reaches"]["width"][r_index_swr] # selecting group with a "." doesn't work here
+print(w)
 
-
-#print(data_swr["reaches"]["width"][index])
 # sortie de mes données: déc 2025, jan 2026 -> v17b
 
 
@@ -82,9 +78,14 @@ file_json = "stationbasins_" + continent + ".geojson"
 path_json = os.path.join(dir_grdc_prefix,continent,file_json)
 # open the netcdf grdc file
 data_grdc = xr.open_dataset(path_nc, engine="netcdf4") # <xarray.Dataset>
+#print(data_grdc)
+## check later
 time_sliced = data_grdc.sel(time=slice('2023-03-29','2025-05-02'))  
-portugal = time_sliced.sel(id=6115500)
-print(portugal)"""
+# print(time_sliced)
+portugal = time_sliced.sel(id=6114500)
+print(type(portugal.time.values[0])) # present: 6113050, 6113110, 6111100, 6114500
+                # absent: """
+
 
 """
 DISPLAY: time_sliced = data_grdc.sel(time=slice('2023-03-29','2025-05-02'))
