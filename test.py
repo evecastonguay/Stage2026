@@ -15,31 +15,26 @@ from scipy.spatial import KDTree
 from zipfile import ZipFile
 import netCDF4 as nc
 from datetime import date, timedelta
+from rapidfuzz import fuzz
 
-## Tests
-
-# soustraction avec nans
-"""a = np.array([[ 0.,  np.nan,  10],
+# numpy array
+a = np.array([9, 4, 4, 3, 3, 9, 0, 4, 6, 0])
+# np nd array 
+aa = np.array([[ 0.,  np.nan,  10],
        [ 3.,  3.,  3.],
        [ 6.,  6.,  6.]])
-print(a[0])
-b = np.array([[ 0.,  0.,  0.],
+bb = np.array([[ 0.,  0.,  0.],
        [ 3.,  3.,  3.],
        [ 6.,  12,  np.nan]])
-
-aaa = np.array([ 0.,  np.inf,  30])
-clip_sum = np.clip(aaa,0,20)"""
-
-# GOAL : concathenate 2 dataarrays
+# dataarrays
 np.random.seed(0)
-t1 = [[22, 22], [32, 4]]# 15 + 8 * np.random.randn(2, 2)
+t1 = [[21, 22], [22, 22]]# 15 + 8 * np.random.randn(2, 2)
 t2 = [[10, np.nan], [3, 8]]# 15 + 8 * np.random.randn(2, 2)
 lon1 = [[-99.83, -99.32], [-99.79, -99.23]]
 lon2 = [[-98.83, -98.32], [-98.79, -97.23]]
 null = np.full((2, 2), np.nan, dtype=np.float64) # dim (id, time)
 lat = [[42.25, 42.21], [42.63, 42.59]]
-reference_time = pd.Timestamp("2014-09-05")
-
+reference_time = pd.Timestamp("2014-09-05")  
 da1 = xr.DataArray(
     data=t1,
     dims=["x", "y"],
@@ -53,7 +48,6 @@ da1 = xr.DataArray(
         units="degC",
     ),
 )
-
 da2 = xr.DataArray(
     data=t2,
     dims=["x", "y"],
@@ -67,32 +61,22 @@ da2 = xr.DataArray(
         units="degC",
     ),
 )
-
+# applying mask
 eps = 11 # to filter out the smaller discharges that would result in a value of inf (/0)
 mask = (da1 >= eps) & (da2>=eps)
 q_ol_g_masked = da1.where(mask)
 q_ol_s_masked = da2.where(mask) #np.where(mask, da2, np.nan)
-print(q_ol_g_masked)
-
-daily_err = (q_ol_s_masked - q_ol_g_masked) / q_ol_g_masked # Nans will be ignored in the computations. *** remove inf (if==0, mettre que daily vaut 0) + si sont tous 0
-print(daily_err)
-mean_err = daily_err.mean()
-print(mean_err)
-
-
-ghj
-
-
-
-"""# two vertical arrays
+# two vertical arrays
 a = np.array([[1], 
               [2], 
               [3]])
 b = np.array([[4], [5], [6]])
 # two horizontal arrays
 c = np.array([1, 2, 3])
-d = np.array([4, 5, 6])"""
+d = np.array([4, 5, 6])
 
+r = fuzz.ratio("rio del janeiro", "rio janeiro ")
+print(r)
 """# GRDC. goal: check if datetime organized by days, and if there is NaN where there is no data (hopefully)
 continent = "na"
 dir_grdc_prefix = "/obs/ecastonguay/grdc_data/"
@@ -386,3 +370,22 @@ mymap = map.scatter(x, y, c=mean_err, cmap='BrBG', marker='o', alpha=1, s=1) # s
 plt.colorbar(mymap, label='Label')
 plt.show()
 """
+
+
+
+
+### leftover comparing discharges in knn loop:
+"""# Areas
+            area_check_s = data_swr["reaches"]["facc"][r_index_swr]
+            area_check_g = area_darray_g.sel(id=station_id).values 
+            assert len(area_check_s) == len(area_check_g)
+            # Mean dschgs
+            mean_dschg_check_g = runoff_darray_23_25_g.sel(id=station_id).mean(dim="time",skipna=True) # fill values in grdc = nan
+            mean_dschg_check_s = np.mean(consensus_q_flt)
+            assert len(mean_dschg_check_g) == len(mean_dschg_check_s)
+            # Compare
+            rel_err_threshold = 20
+            area_rel_err = (np.absolute(area_check_s - area_check_g) / area_check_g)*100
+            mean_dschg_rel_err = (np.absolute(mean_dschg_check_s - mean_dschg_check_g) / mean_dschg_check_g)*100
+            
+            if (area_rel_err > rel_err_threshold) or (mean_dschg_rel_err > rel_err_threshold):"""
