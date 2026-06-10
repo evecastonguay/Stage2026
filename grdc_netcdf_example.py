@@ -41,10 +41,11 @@ path_nc = os.path.join(dir_grdc_prefix,continent,file_nc)
 file_json = "stationbasins_" + continent + ".geojson"
 path_json = os.path.join(dir_grdc_prefix,continent,file_json)
 data_grdc = xr.open_dataset(path_nc, engine="netcdf4") # <xarray.Dataset>
-time_sliced = data_grdc.sel(time=slice('2023-03-29','2025-05-02'))  
+time_sliced = data_grdc.sel(time=slice('2023-03-29','2025-05-02')) 
+print(time_sliced['runoff_mean'].time)
 # geojson
 ws_data = gpd.read_file(path_json) # watershed
-col_names = ws_data.info()
+#col_names = ws_data.info()
 df_s = ws_data.loc[:,['grdc_no','river','area_calc']] # <class 'geopandas.geodataframe.GeoDataFrame'>
 # convert each variables to DataSets
 station_id_g = ws_data['grdc_no']
@@ -52,21 +53,11 @@ area_g = ws_data['area_calc']
 area_darray_g = xr.DataArray(
         data=area_g,
         dims=["id"], # name of the dimensions
-        coords=dict(
-            id=station_id_g,
-        ),
-        attrs=dict(
-            description="Watershed areas (km2)"
-        ),
-        name="watershed areas" s
-    )
-"""# select gdf data by station
-sel_station = df_s.loc[df_s["grdc_no"] == 4101200] # 1858.4
-area_station = sel_station.iloc[0]['area_calc'] # 1858.4
-river_station = sel_station.iloc[0]['river']
-id_station = sel_station.iloc[0]['grdc_no']"""
+        coords=dict(id=station_id_g,),
+        attrs=dict(description="Watershed areas (km2)"),
+        name="watershed areas")
 
-xr.Dataset.from_dataframe(df)
+
 
 
 """#   Column     Non-Null Count  Dtype   
@@ -94,7 +85,9 @@ None"""
 ##### -> SWOT opening
 single_file_name = "/obs/ecastonguay/swot_data/L4_discharge/na_sword_v16_SOS_results_unconstrained_20230502T204408_20250502T204408_20251219T163700.nc"  
 data_l4 = nc.Dataset(single_file_name)
-q = data_l4.groups["consensus"]['consensus_q'][3000]
+q = data_l4.groups["consensus"]['consensus_q'].sel()
+
+q_all = data_l4.groups["consensus"]['consensus_q'][:] # same shape as ncdf variable (38048,)
 
 """
 DISPLAY: time_sliced = data_grdc.sel(time=slice('2023-03-29','2025-05-02'))
