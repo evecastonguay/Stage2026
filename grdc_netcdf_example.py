@@ -13,18 +13,17 @@ import glob
 import xml.etree.ElementTree as ET
 import netCDF4 as nc
 import numpy as np
+import geopandas as gpd
 
-#### SWORD example
-## Section x : Extracting SWORD data
-# x.1 reading the file
+#### -> SWORD opening
+# Reading the file
 continent_list = ['af', 'as', 'eu', 'na', 'sa', 'oc']
 dir_swr = "/obs/ecastonguay/sword_data/netcdf_v16" # sword
-file_swr = 'sa' + "_sword_v16.nc" # CONTINENT!
+file_swr = 'na' + "_sword_v16.nc" # CONTINENT!
 path_swr = os.path.join(dir_swr,file_swr)
-# open the netcdf file
 data_swr = nc.Dataset(path_swr)
 # x.2 Finding the right reach_id
-r_list_swr = data_swr["reaches"]["reach_id"][:]
+r_list_swr = data_swr["reaches"]["rch_id_dn"]
 selected_reach_id = 62291000181 # 74210000201 article 3, fig 2a - reach on mississippi near bâton rouge (na) [found by algo]
                                 # 74230900011 reach of the good graph [found by algo]
                                 # 62291000181 amazonie (1420.5)
@@ -33,59 +32,69 @@ selected_reach_id = 62291000181 # 74210000201 article 3, fig 2a - reach on missi
 
                                 # 81130400011 article 3, fig 2b - the reach my code found (na) [NOT found] ????? -> considérer cette option dans mon code. faire une variable qui compte le nb de reaches perdus
                                 # 81130400021 article 3, fig 2b - the reach they actually used (na) [found by algo]
-r_index_swr = np.where(r_list_swr==selected_reach_id) # [NOT found] ????? -> considérer cette option dans mon code. faire une variable qui compte le nb de reaches perdus
-if r_index_swr[0].size != 0: # if the reach_id is found in the sword database
-    print('found')
-else:
-    print('not found')
 
-x = data_swr["reaches"]["x"][r_index_swr]
-y = data_swr["reaches"]["y"][r_index_swr]
-print(f'({y},{x})')
-
-# x.4 Retreiving the width associated with it 
-w = data_swr["reaches"]["width"][r_index_swr] # selecting group with a "." doesn't work here
-print(w)
-
-# sortie de mes données: déc 2025, jan 2026 -> v17b
-
-
-
-
-"""
-#### MY DATASET example
-<xarray.Dataset> Size: 48MB
-Dimensions:          (time: 766, id: 5241)
-Coordinates:
-  * time             (time) datetime64[us] 6kB 2023-03-29 ... 2025-05-02
-  * id               (id) int64 42kB 1159100 1159103 1159110 ... 5870600 5870655
-Data variables:
-    runoff_global_g  (id, time) float32 16MB 433.0 424.6 414.8 ... 59.33 49.56
-    geox_global_g    (id) float32 21kB 17.72 19.15 20.36 ... 171.9 171.7 172.4
-    geoy_global_g    (id) float32 21kB -28.76 -28.96 -31.81 ... -41.83 -41.76
-    area_global_g    (id) float32 21kB 8.665e+05 8.599e+05 ... 6.35e+03 1.41e+03
-    dschg_global_s   (id, time) float64 32MB nan nan nan nan ... nan nan nan nan
-    geox_global_s    (id) float64 42kB 17.76 19.14 19.48 ... 171.7 171.6 172.9
-    geoy_global_s    (id) float64 42kB -28.75 -28.96 -32.13 ... -42.29 -41.83
-    id_global_s      (id) int64 42kB 12730300031 12730700131 ... 57205200091"""
-
-##### Section GRDC example (finir, 3 juin!)
-"""continent = "eu"
+##### -> GRDC opening
+continent = "na"
 dir_grdc_prefix = "/obs/ecastonguay/grdc_data/"
 file_nc = continent + ".nc"
 path_nc = os.path.join(dir_grdc_prefix,continent,file_nc)
 file_json = "stationbasins_" + continent + ".geojson"
 path_json = os.path.join(dir_grdc_prefix,continent,file_json)
-# open the netcdf grdc file
 data_grdc = xr.open_dataset(path_nc, engine="netcdf4") # <xarray.Dataset>
-#print(data_grdc)
-## check later
 time_sliced = data_grdc.sel(time=slice('2023-03-29','2025-05-02'))  
-# print(time_sliced)
-portugal = time_sliced.sel(id=6114500)
-print(type(portugal.time.values[0])) # present: 6113050, 6113110, 6111100, 6114500
-                # absent: """
+# geojson
+ws_data = gpd.read_file(path_json) # watershed
+col_names = ws_data.info()
+df_s = ws_data.loc[:,['grdc_no','river','area_calc']] # <class 'geopandas.geodataframe.GeoDataFrame'>
+# convert each variables to DataSets
+station_id_g = ws_data['grdc_no']
+area_g = ws_data['area_calc']
+area_darray_g = xr.DataArray(
+        data=area_g,
+        dims=["id"], # name of the dimensions
+        coords=dict(
+            id=station_id_g,
+        ),
+        attrs=dict(
+            description="Watershed areas (km2)"
+        ),
+        name="watershed areas" s
+    )
+"""# select gdf data by station
+sel_station = df_s.loc[df_s["grdc_no"] == 4101200] # 1858.4
+area_station = sel_station.iloc[0]['area_calc'] # 1858.4
+river_station = sel_station.iloc[0]['river']
+id_station = sel_station.iloc[0]['grdc_no']"""
 
+xr.Dataset.from_dataframe(df)
+
+
+"""#   Column     Non-Null Count  Dtype   
+---  ------     --------------  -----   
+ 0   grdc_no    1651 non-null   float64 
+ 1   river      1651 non-null   str     
+ 2   station    1651 non-null   str     
+ 3   area       1651 non-null   float64 
+ 4   altitude   1651 non-null   float64 
+ 5   lat_org    1651 non-null   float64 
+ 6   long_org   1651 non-null   float64 
+ 7   lat_pp     1651 non-null   float64 
+ 8   long_pp    1651 non-null   float64 
+ 9   dist_km    1651 non-null   float64 
+ 10  area_calc  1651 non-null   float64 
+ 11  quality    1651 non-null   str     
+ 12  type       1651 non-null   str     
+ 13  comment    1651 non-null   str     
+ 14  source     1651 non-null   str     
+ 15  geometry   1651 non-null   geometry
+dtypes: float64(9), geometry(1), str(6)
+memory usage: 206.5 KB
+None"""
+
+##### -> SWOT opening
+single_file_name = "/obs/ecastonguay/swot_data/L4_discharge/na_sword_v16_SOS_results_unconstrained_20230502T204408_20250502T204408_20251219T163700.nc"  
+data_l4 = nc.Dataset(single_file_name)
+q = data_l4.groups["consensus"]['consensus_q'][3000]
 
 """
 DISPLAY: time_sliced = data_grdc.sel(time=slice('2023-03-29','2025-05-02'))
@@ -182,9 +191,10 @@ Attributes:
 #runoff_06_2023_09_2024 = runoff.sel(time=slice("2023-06-01","2024-09-01")) # slicing the entire data to keep values between X and Y dates
 #print(data["geo_y"].values[0])
 
-##### ---------------------------------------------- Section SWOT example
+##### -> SWOT opening
 single_file_name = "/obs/ecastonguay/swot_data/L4_discharge/na_sword_v16_SOS_results_unconstrained_20230502T204408_20250502T204408_20251219T163700.nc"  
 data_l4 = nc.Dataset(single_file_name)
+q = data_l4.groups["consensus"]['consensus_q'][3000]
 
 """
 Display results (data is stored within the groups):
