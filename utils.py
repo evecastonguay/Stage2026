@@ -5,7 +5,7 @@
 import numpy as np
 from rapidfuzz import fuzz
 
-def corresp(station_id, r_id, area_data_grdc, river_data_grdc, area_data_sword, river_data_sword, dschg_data_swot):
+def corresp(station_id, r_id, r_index, area_darray_g, river_darray_g, area_darray_sword, river_darray_sword, dschg_swot):
     """Establishes the best match possible between a given GRDC station 
     and a SWOT reach, considering the watershed area and the name of the river.
     Returns the id of the reach if the match is valid, or np.nan otherwise."""
@@ -14,15 +14,15 @@ def corresp(station_id, r_id, area_data_grdc, river_data_grdc, area_data_sword, 
     thr = [0.5, 20, 75] # [alpha, rel_err_threshold (%), str_similarity]
 
     # Test #1 : Does the selected nearest reach contains discharge data?
-    dschg_check_s = dschg_data_swot.sel(reach_id=r_id).values
-    mask_mv = (dschg_check_s != dschg_check_s.missing_value) # [tested]
+    dschg_check_s = dschg_swot[r_index][:]
+    mask_mv = (dschg_check_s != dschg_swot.missing_value) # [tested]
     dschg_flt_s = dschg_check_s[mask_mv] # [tested] filtered discharge
     if dschg_flt_s.size == 0: # for a given index, is all discharge data missing value?
         return None
 
     # Test #2 : Does the selected nearest reach contains similar area values?
-    area_check_s = area_data_sword.sel(reach_id=r_id).values 
-    area_check_g = area_data_grdc.sel(id=station_id).values # ex: 866486.0
+    area_check_s = area_darray_sword.sel(reach_id=r_id).values 
+    area_check_g = area_darray_g.sel(id=station_id).values # ex: 866486.0
     # infinity
     alpha = thr[0]
     if area_check_g < alpha:  
@@ -32,8 +32,8 @@ def corresp(station_id, r_id, area_data_grdc, river_data_grdc, area_data_sword, 
     area_rel_err = (np.absolute(area_check_s - area_check_g) / area_check_g)*100
 
     # Test #3 : Is the river name similar? 
-    river_check_s = river_data_sword.sel(reach_id=r_id).values
-    river_check_g = river_data_grdc.sel(id=station_id).values 
+    river_check_s = river_darray_sword.sel(reach_id=r_id).values
+    river_check_g = river_darray_g.sel(id=station_id).values 
     # lower case
     river_lc_s = river_check_s.lower()
     river_lc_g = river_check_g.lower()
@@ -47,7 +47,7 @@ def corresp(station_id, r_id, area_data_grdc, river_data_grdc, area_data_sword, 
 
     # Comparison of area & name to thresholds
     if (ratio >= ratio_thr) and (area_rel_err <= rel_err_thr):
-        return r_id, dschg_flt_s, mask_mv
+        return r_id, r_index, dschg_flt_s, mask_mv
     else:
         return None
     
