@@ -210,7 +210,7 @@ def corresp_name_dist_area_v5(station_id, cleaned_river_names_swr, cleaned_river
     This function also considers the swot discharge to be a DataArray, not a simple list (novelty compared to v4)."""
 
     ## Section 1 : Set thresholds
-    thr = [0.5, 20, 80, 50] # [alpha, rel_err_threshold (%), str_similarity (Indel index), distance (km)]
+    thr = [0.5, 20, 75, 100] # [alpha, rel_err_threshold (%), str_similarity (Indel index), distance (km)]
 
     ## Section 2 : Compare names
     query_name_g = river_darray_g.sel(id=station_id).item().lower()

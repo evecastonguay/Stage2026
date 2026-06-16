@@ -26,6 +26,8 @@ from rapidfuzz import fuzz
 %autoreload 2"""
 import utils
 
+
+version = 'v8_1'
 ## Section 1 : Setting some variables
 # 1.1 Continents
 continent_list = ['na', 'af', 'as', 'eu', 'sa', 'oc']
@@ -222,8 +224,8 @@ for i_continent in continent_list:
             continue
         
         # 7.2 Coordinates of station
-        x_found_station = geox_darray_g.sel(id=station_id).values # 4977015 -> "not all values found in index 'id'. Try setting the `method` keyword argument (example: method='nearest')."
-        y_found_station = geoy_darray_g.sel(id=station_id).values # [tested]
+        x_found_station = geox_darray_g.sel(id=station_id).item() # 4977015 -> "not all values found in index 'id'. Try setting the `method` keyword argument (example: method='nearest')."
+        y_found_station = geoy_darray_g.sel(id=station_id).item() # [tested]
 
         ## Section 8 : Corresp. based on names, then distance and area
         result, reason = utils.corresp_name_dist_area_v5(station_id, river_clean_full_s, index_clean_full_s, r_id_swr, area_darray_g, river_darray_g, facc_darray_full_s, dschg_darray_full_s, x_found_station, y_found_station, geox_darray_full_s, geoy_darray_full_s)
@@ -427,4 +429,4 @@ dset_global['river_global_s'] = river_global_s
 print(dset_global)
 
 # Save to netcdf
-dset_global.to_netcdf("/obs/ecastonguay/scripts/global_dset_v5.nc")
+dset_global.to_netcdf("/obs/ecastonguay/scripts/global_dset_" + version + ".nc")
