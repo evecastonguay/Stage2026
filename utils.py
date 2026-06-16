@@ -7,6 +7,7 @@ from rapidfuzz import fuzz, process
 import re
 from scipy.spatial import KDTree
 import pandas as pd
+import geopy.distance
 
 def dschg_darray(dschg_swt, time_swt, r_id_swt, time_dim, mv_swot):
     """Takes the swot discharge data (arrays in an array which have different shapes) and 
@@ -209,7 +210,7 @@ def corresp_name_dist_area_v5(station_id, cleaned_river_names_swr, cleaned_river
     This function also considers the swot discharge to be a DataArray, not a simple list (novelty compared to v4)."""
 
     ## Section 1 : Set thresholds
-    thr = [0.5, 20, 75, 50] # [alpha, rel_err_threshold (%), str_similarity (Indel index), distance (km)]
+    thr = [0.5, 20, 75, 100] # [alpha, rel_err_threshold (%), str_similarity (Indel index), distance (km)]
 
     ## Section 2 : Compare names
     query_name_g = river_darray_g.sel(id=station_id).item().lower()
@@ -275,14 +276,15 @@ def corresp_name_dist_area_v5(station_id, cleaned_river_names_swr, cleaned_river
     for id in r_ids_list:
         geox_list_s.append(geox_darray_swt.sel(reach_id=id))
         geoy_list_s.append(geoy_darray_swt.sel(reach_id=id))
-    stacked_xy = np.vstack((geox_list_s,geoy_list_s)).T
-    k_neighbors = [stacked_xy.shape[0]] # the goal here is to compute distance, then check if below threshold
-    distance_list, index_list = KDTree(stacked_xy).query([x_station, y_station],k=k_neighbors) 
-    for ii in range(len(k_neighbors)): 
-        if distance_list[ii] <= thr[3]: # distance_list[ii] for multiple neighbors
-            
-            pos = index_list[ii]
-            sel_r_id = r_ids_list[pos] # index_list[ii] is in same order as r_ids_list
+    assert len(geox_list_s) == len(geoy_list_s) == len(r_ids_list) == len(river_names_list)
+
+    for pos in range(len(geox_list_s)): 
+        coord_s = (geoy_list_s[pos], geox_list_s[pos])
+        coord_g = (y_station, x_station)
+        distance = geopy.distance.geodesic(coord_s, coord_g).km
+
+        if distance <= thr[3]:
+            sel_r_id = r_ids_list[pos]
             sel_river_name = river_names_list[pos]  
             
             ## Section 5 : Similar areas?
