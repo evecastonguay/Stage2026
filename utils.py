@@ -213,8 +213,6 @@ def corresp_name_dist_area_v5(station_id, cleaned_river_names_swr, cleaned_river
     thr = [0.5, 20, 80, 50] # [alpha, rel_err_threshold (%), str_similarity (Indel index), distance (km)]
 
     ## Section 2 : Compare names
-    if station_id == 4126801:
-        print(cleaned_river_names_swr.count("red river"))
     query_name_g = river_darray_g.sel(id=station_id).item().lower()
     matches = process.extract(
         query_name_g, # name of the river we are searching
@@ -239,24 +237,12 @@ def corresp_name_dist_area_v5(station_id, cleaned_river_names_swr, cleaned_river
     
     # indexes sword
     idx_list_swr = list(best_per_index.keys()) 
-    if station_id == 4126801:
-        print(idx_list_swr)
     # river names sword
     river_names_list = list(best_per_index.values())
-    if station_id == 4126801:
-        print(river_names_list)
     # r id
     r_ids_list = [r_id_swr[l] for l in idx_list_swr]
-    if station_id == 4126801:
-        print(r_ids_list)
     # discharge swot
     dschg_list = [dschg_darray_swt.sel(reach_id=r).values for r in r_ids_list]
-    if station_id == 4126801:
-        for ix, rid in enumerate(r_ids_list):
-            dschg = dschg_list[ix]
-            print(rid)
-            print(dschg.shape)
-            print(np.unique(dschg))
    
     assert len(r_ids_list) == len(river_names_list) == len(idx_list_swr) == len(dschg_list)
 
@@ -294,8 +280,6 @@ def corresp_name_dist_area_v5(station_id, cleaned_river_names_swr, cleaned_river
     for pos in range(len(geox_list_s)): 
         coord_s = (geoy_list_s[pos], geox_list_s[pos])
         coord_g = (y_station, x_station)
-        if station_id == 4126801:
-            print("coord s, g", coord_s, coord_g)
         distance = geopy.distance.geodesic(coord_s, coord_g).km
         dist_list.append(distance)
     
@@ -318,8 +302,6 @@ def corresp_name_dist_area_v5(station_id, cleaned_river_names_swr, cleaned_river
             
             # compute relative error on areas
             area_rel_err = (np.absolute(area_check_s - area_check_g) / area_check_g)*100
-            if station_id == 4126801:
-                print(area_rel_err)
             if (area_rel_err <= thr[1]):
                 return (sel_r_id, sel_river_name), 'ok' 
     return None, 'no match on distance or area'
